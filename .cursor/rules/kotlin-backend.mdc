@@ -1,0 +1,12 @@
+---
+description: Kotlin, Spring Boot, and Exposed conventions for the backend
+globs: backend/**/*.kt
+alwaysApply: false
+---
+
+# Kotlin and backend standards
+
+- **Kotlin style**: Follow official Kotlin coding conventions (JetBrains). Use `val` over `var`; data classes for DTOs and domain models; `when` instead of long if-else; explicit types for public API. Names: UpperCamelCase for types, lowerCamelCase for functions/variables, UPPER_SNAKE_CASE for constants. Spaces only (no tabs), UTF-8.
+- **Spring Boot**: Prefer constructor injection for dependencies (testable, immutable). Keep controllers thin: parse request, call use case, map result to DTO. Use DTOs for API request/response; do not expose domain entities directly. Centralize error handling (e.g. `@ControllerAdvice`) with consistent error response shape. REST: plural nouns for resources (e.g. `/api/projects`), appropriate status codes (201 Created for POST, 200 OK for GET).
+- **Exposed**: Use DSL style. Wrap multi-statement writes in a single transaction. Prefer selecting specific columns over `SELECT *`. Use `batchInsert` for bulk inserts. Define tables with proper column types and constraints; keep repository implementations in `infrastructure.persistence`. Use parameterized queries; avoid string-concatenated SQL.
+- **Testing**: Mockk for mocks, Strikt for assertions, Kotest for structure. Unit-test use cases and agents with mocked repositories and LLM client; at least one integration-style test for the pipeline (mocked LLM, real or in-memory DB) verifying status transitions and artifact persistence.
