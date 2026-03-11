@@ -23,4 +23,4 @@ A multi-agent system that generates playable 2D platformer games from natural-la
 
 - **1. Start App via Docker Compose**
   - From the repo root:
-    - `docker compose up
+    - `docker compose up`
