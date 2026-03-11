@@ -17,4 +17,10 @@ A multi-agent system that generates playable 2D platformer games from natural-la
 
 ## Running locally
 
-(To be filled in during implementation: e.g. Gradle for backend, npm/pnpm for frontend, required env such as `OPENAI_API_KEY`, `DB_URL`.)
+- **Prerequisites**:
+  - Docker and Docker Compose installed.
+  - Java 21 (or a JDK supported by the backend `build.gradle.kts`).
+
+- **1. Start App via Docker Compose**
+  - From the repo root:
+    - `docker compose up
