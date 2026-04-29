@@ -5,8 +5,9 @@ alwaysApply: true
 
 # Design and architecture
 
-- **Canonical design**: Before implementing features, changing architecture, or adding agents/artifacts, read [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md). It is the single source of truth for tech choices, user flows, pipeline, and task breakdown.
+- **Canonical design**: Before implementing features, changing architecture, or adding agents/artifacts, read [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md). It is the single source of truth for tech choices, user flows, Temporal workflow architecture, LangGraph4j team graphs, pipeline, and task breakdown.
 - **Studio teams**: Logic is organized by team under `application.team.<name>` (design, story, art, engineering, qa, direction). Each team owns specific artifact types; place new agent or reflection code in the correct team package. Do not add "generic" agent code outside a team.
 - **DDD/onion**: Domain has no dependency on application or infrastructure. Application depends only on domain (and interfaces to infra). New domain concepts go in `domain.model` or `domain.service`; use cases in `application.usecase`; orchestration in `application.orchestration`; REST and DTOs in `interfaces.web`.
+- **Framework boundaries**: Temporal owns durable project-level workflows. LangGraph4j is only for bounded team reasoning graphs inside activities. Domain models, REST DTOs, and persisted artifact contracts must not import Temporal, LangGraph4j, or provider SDK types.
 - **Artifacts and files**: Structured data lives as JSON in artifacts. Unstructured data (images, audio, generated assets) is stored as files/blobs; artifacts reference them via JSON (e.g. `BINARY_ASSET` with payload `{ "filePath" }` or `{ "blobId" }`; `AssetList` entries with `fileRef`). Keep schema-driven contracts; only the reference is in JSON.
 - **Gaps**: If the design is silent on a detail, follow the "Handling gaps" section in the design doc: domain defaults + REFLECTION_NOTE; architectural changes must respect onion layers; new artifact types or teams require updating the design or documenting in REFLECTION_NOTE.
