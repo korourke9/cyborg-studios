@@ -17,10 +17,21 @@ A multi-agent system that generates playable 2D platformer games from natural-la
 
 ## Running locally
 
-- **Prerequisites**:
-  - Docker and Docker Compose installed.
-  - Java 21 (or a JDK supported by the backend `build.gradle.kts`).
+Use **Docker Compose** for the database, backend, and frontend. You do not need Java, Gradle, or Node installed on your machine for day-to-day development.
 
-- **1. Start App via Docker Compose**
-  - From the repo root:
-    - `docker compose up`
+- **Prerequisites**: Docker and Docker Compose.
+
+From the repo root:
+
+1. **Start Postgres, backend, and frontend** (builds images on first run):
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+2. **Verify**:
+   - **API**: `curl http://localhost:8080/` → `Welcome to Cyborg Studios API`
+   - **UI**: open [http://localhost:3000](http://localhost:3000) — the home page loads and shows the same welcome text from the API (browser → backend; CORS allows `http://localhost:3000`).
+
+- **Logs**: `docker compose logs -f frontend` (or `backend`, `db`).
+- **Stop**: `docker compose down` (add `-v` only if you intend to wipe the database volume).
