@@ -14,16 +14,47 @@ services:
     volumes:
       - db_data:/var/lib/postgresql
 
+  temporal:
+    image: temporalio/auto-setup:1.28.4
+    container_name: cyborg-studios-temporal
+    depends_on:
+      - db
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: gamebuilder
+      POSTGRES_PWD: gamebuilder
+      POSTGRES_SEEDS: db
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: cyborg-studios-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8233:8080"
+
   backend:
     build:
       context: ./backend
     container_name: cyborg-studios-backend
     depends_on:
       - db
+      - temporal
     environment:
       DB_URL: jdbc:postgresql://db:5432/gamebuilder
       DB_USERNAME: gamebuilder
       DB_PASSWORD: gamebuilder
+      TEMPORAL_TARGET: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: game-generation
       PORT: 8080
       CORS_ALLOWED_ORIGINS: http://localhost:3000
     ports:

@@ -28,3 +28,9 @@ management:
     health:
       show-details: when_authorized
 
+app:
+  temporal:
+    target: ${TEMPORAL_TARGET:localhost:7233}
+    namespace: ${TEMPORAL_NAMESPACE:default}
+    task-queue: ${TEMPORAL_TASK_QUEUE:game-generation}
+

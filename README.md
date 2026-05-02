@@ -10,7 +10,7 @@ A multi-agent system that generates playable 2D platformer games from natural-la
 
 ## Repo layout
 
-- `backend/` — Kotlin, Spring Boot (API), Kotlin Exposed, PostgreSQL; agents and orchestration.
+- `backend/` — Kotlin, Spring Boot (API), Kotlin Exposed, PostgreSQL; backend modules are local onions. Orchestration coordination lives under `com.cyborgstudios.gamebuilder.orchestration.{domain,application,infrastructure,interfaces}`, while peer studio-team logic lives under `com.cyborgstudios.gamebuilder.team.<name>.{domain,application,infrastructure,interfaces}` as needed.
 - `frontend/` — TypeScript, Svelte 5, SvelteKit, Tailwind; prompt UI, artifact viewer, Phaser game runner.
 - `docs/` — Design document and any additional documentation.
 - `scripts/` — Utilities (e.g. sync_rules for rules/docs sync).
@@ -23,13 +23,13 @@ A multi-agent system that generates playable 2D platformer games from natural-la
 
 ## Running locally
 
-Use **Docker Compose** for the database, backend, and frontend. You do not need Java, Gradle, or Node installed on your machine for day-to-day development.
+Use **Docker Compose** for the database, Temporal, backend, and frontend. You do not need Java, Gradle, or Node installed on your machine for day-to-day development.
 
 - **Prerequisites**: Docker and Docker Compose.
 
 From the repo root:
 
-1. **Start Postgres, backend, and frontend** (builds images on first run):
+1. **Start Postgres, Temporal, backend, and frontend** (builds images on first run):
 
    ```bash
    docker compose up --build -d
@@ -38,6 +38,7 @@ From the repo root:
 2. **Verify**:
    - **API**: `curl http://localhost:8080/` → `Welcome to Cyborg Studios API`
    - **UI**: open [http://localhost:3000](http://localhost:3000) — the home page loads and shows the same welcome text from the API (browser → backend; CORS allows `http://localhost:3000`).
+   - **Temporal UI**: open [http://localhost:8233](http://localhost:8233) to inspect generation workflows.
 
-- **Logs**: `docker compose logs -f frontend` (or `backend`, `db`).
+- **Logs**: `docker compose logs -f frontend` (or `backend`, `temporal`, `db`).
 - **Stop**: `docker compose down` (add `-v` only if you intend to wipe the database volume).

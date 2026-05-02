@@ -26,26 +26,31 @@
 
 ## 2. Application architecture
 
-High-level: **Browser** (SvelteKit) talks to **Spring Boot API**; API starts a **Temporal workflow** for generation; Temporal activities run team services that call LLM/agent graphs and persist **artifacts** and the **game bundle**; browser shows prompt UI, artifact viewer, and a **Phaser-based game runner** that loads the generated game.
+High-level: **Browser** (SvelteKit) talks to **Spring Boot API**; API starts a **Temporal workflow** for generation; orchestration activities coordinate peer studio-team services that produce **artifacts** and the **game bundle**; browser shows prompt UI, artifact viewer, and a **Phaser-based game runner** that loads the generated game.
 
 - **Repo layout**: Single repo: `backend/` (Kotlin/Spring), `frontend/` (SvelteKit), `docs/` (this design).
 - **API surface**: REST only; generation is **asynchronous and durable** (POST creates project and starts a Temporal workflow, GET polls project status and artifacts from PostgreSQL).
 - **Data ownership**: PostgreSQL holds **projects**, **artifacts** (all team outputs), and **game bundle**. For MVP, "user" can be anonymous or a single default user.
 
-**Backend layering with studio teams (DDD/onion)**
+**Backend modules as local onions**
 
-- **Domain** (no team concepts, no Temporal/LangGraph/provider SDK imports): `domain.model` (e.g. `Project`, `Artifact`, `GameSpec`, `DesignPillars`, `MechanicsSpec`, `NarrativeSpec`, `ArtDirection`, `AssetList`, `GameBundle`, `QaIssues`, `CoherenceReview`), `domain.service` (`ProjectDomainService`, validators).
+There are no repo-wide top-level `domain`, `application`, `infrastructure`, or `interfaces` packages. Those layers exist **inside each backend module/bounded context**, scoped to that module's responsibility.
+
+`orchestration` is a backend module under `com.cyborgstudios.gamebuilder`. It owns the durable game-generation workflow, project/artifact state, and related REST surface. Studio teams are **peers** to orchestration under `com.cyborgstudios.gamebuilder.team.<name>`; orchestration coordinates teams, but teams own the logic that produces their artifacts. Keep the root `com.cyborgstudios.gamebuilder` package for app bootstrap and truly cross-module concerns only.
+
+- **Domain** (no team concepts, no Temporal/LangGraph/provider SDK imports): `orchestration.domain.model` (e.g. `Project`, `Artifact`, `GameSpec`, `DesignPillars`, `MechanicsSpec`, `NarrativeSpec`, `ArtDirection`, `AssetList`, `GameBundle`, `QaIssues`, `CoherenceReview`), `orchestration.domain.service` (`ProjectDomainService`, validators).
 - **Application**:
-  - `application.usecase`: `CreateProjectUseCase`, `GetProjectUseCase`, `GenerateGameUseCase` (or `RunPipelineUseCase`).
-  - `application.orchestration`: `GameGenerationWorkflow` / workflow contract, activity contracts, and a small `PipelineOrchestrator`/starter facade that starts Temporal workflows from use cases or REST paths.
-  - `application.team.design`: `CreativeDirectorAgentService`, `DesignersAgentService`, optional `DesignTeamReflectionService`.
-  - `application.team.story`: `WritersAgentService`, `StoryTeamReflectionService`.
-  - `application.team.art`: `ArtTeamAgentService`, `ArtTeamReflectionService`.
-  - `application.team.engineering`: `EngineersAgentService`, `EngineeringTeamReflectionService`.
-  - `application.team.qa`: `QaAgentService`, optional `QaTeamReflectionService`.
-  - `application.team.direction`: `DirectorAgentService`, `DirectionTeamReflectionService`.
-- **Infrastructure**: `infrastructure.persistence` (Exposed tables, repositories), `infrastructure.temporal` (Temporal client, worker, activity wiring), `infrastructure.llm` (LLM clients, LangGraph4j adapters, routing), `infrastructure.gamebundle` (bundle storage), `infrastructure.config`.
-- **Interfaces/adapters**: `interfaces.web` (REST controllers and DTOs), `interfaces.mappers`.
+  - `orchestration.application.usecase`: `CreateProjectUseCase`, `GetProjectUseCase`, `GenerateGameUseCase` (or `RunPipelineUseCase`).
+  - `orchestration.application.port`: framework-neutral ports such as `GenerationWorkflowRunner`; no Spring, Temporal, LangGraph4j, or provider SDK imports or annotations.
+- **Infrastructure**: `orchestration.infrastructure.persistence` (Exposed tables, repositories), `orchestration.infrastructure.temporal` (Temporal workflow/activity contracts, workflow implementations, client/worker wiring, workflow-runner adapter), `orchestration.infrastructure.llm` (LLM clients, LangGraph4j adapters, routing), `orchestration.infrastructure.gamebundle` (bundle storage), `orchestration.infrastructure.config`.
+- **Interfaces/adapters**: `orchestration.interfaces.web` (REST controllers and DTOs), `orchestration.interfaces.mappers`.
+- **Studio teams** (each with its own local onion as needed):
+  - `team.design.domain`, `team.design.application`, `team.design.infrastructure`: `CreativeDirectorAgentService`, `DesignersAgentService`, optional `DesignTeamReflectionService`.
+  - `team.story.domain`, `team.story.application`, `team.story.infrastructure`: `WritersAgentService`, `StoryTeamReflectionService`.
+  - `team.art.domain`, `team.art.application`, `team.art.infrastructure`: `ArtTeamAgentService`, `ArtTeamReflectionService`.
+  - `team.engineering.domain`, `team.engineering.application`, `team.engineering.infrastructure`: `EngineersAgentService`, `EngineeringTeamReflectionService`.
+  - `team.qa.domain`, `team.qa.application`, `team.qa.infrastructure`: `QaAgentService`, optional `QaTeamReflectionService`.
+  - `team.direction.domain`, `team.direction.application`, `team.direction.infrastructure`: `DirectorAgentService`, `DirectionTeamReflectionService`.
 
 **Artifact storage**
 
@@ -76,17 +81,17 @@ User sees intermediate artifacts and can give feedback; backend creates a new ve
 
 There are two graph layers, and they must not duplicate each other:
 
-- **Temporal workflow graph**: Owns the durable project pipeline, team ordering, retries, timers, crash recovery, and future user feedback signals.
+- **Temporal workflow graph**: Owns the durable project pipeline, team ordering, retries, timers, crash recovery, and future user feedback signals. It coordinates teams but does not contain team logic.
 - **LangGraph4j team graphs**: Own bounded, internal agent reasoning inside a team activity, such as draft → critique → revise → validate → finalize.
 
 **Teams and artifact ownership**
 
-- **Design team** (`application.team.design`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec.
-- **Story team** (`application.team.story`): NarrativeSpec, QuestBeats.
-- **Art team** (`application.team.art`): ArtDirection, AssetList, AssetPrompts; may create BINARY_ASSET artifacts (payload = JSON with file/blob reference).
-- **Engineering team** (`application.team.engineering`): GameBundle.
-- **QA team** (`application.team.qa`): QaIssues.
-- **Direction team** (`application.team.direction`): CoherenceReview, DirectorNotes.
+- **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec.
+- **Story team** (`team.story.*`): NarrativeSpec, QuestBeats.
+- **Art team** (`team.art.*`): ArtDirection, AssetList, AssetPrompts; may create BINARY_ASSET artifacts (payload = JSON with file/blob reference).
+- **Engineering team** (`team.engineering.*`): GameBundle.
+- **QA team** (`team.qa.*`): QaIssues.
+- **Direction team** (`team.direction.*`): CoherenceReview, DirectorNotes.
 
 **Core artifact model**
 
@@ -96,8 +101,8 @@ There are two graph layers, and they must not duplicate each other:
 **Durable, resumable orchestration**
 
 - Temporal is the durable harness. The workflow owns step ordering and retry policy, but workflow code must remain deterministic.
-- Temporal activities perform non-deterministic work: repository calls, LLM calls, LangGraph4j execution, artifact persistence, and status updates.
-- Each activity reads project and upstream artifacts, builds team-specific context, runs the team graph/agent(s), validates output, then persists artifacts and updates `ProjectStatus` in a transaction.
+- Temporal activities perform non-deterministic work: repository calls, calls into peer team services/graphs, artifact persistence, and status updates.
+- Each activity reads project and upstream artifacts, builds team-specific context, calls the appropriate peer team service/graph, validates output, then persists artifacts and updates `ProjectStatus` in a transaction.
 - PostgreSQL remains the user-facing source of truth for project status and artifacts; Temporal is the execution history and recovery system.
 - On crash, Temporal resumes workflow execution. Failures set `FAILED` and may create a `REFLECTION_NOTE`.
 
@@ -121,7 +126,7 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 1. **Foundation**: repo, backend skeleton, DB/Exposed, frontend skeleton, Docker Compose.
 2. **Durable workflow foundation**: add Temporal services to Compose, backend Temporal dependencies/config, workflow/activity contracts, worker startup, workflow starter, and integration tests that verify API → workflow → persisted status/artifacts.
 3. **Agent graph foundation**: add internal `LlmModel`, `LlmRouter`, `ModelCapability`, and `AgentGraph<I, O>` boundaries; add LangGraph4j behind those boundaries for the first team graph.
-4. **Teams and orchestration**: implement each team's activity + graph + reflection + validation; wire them into the Temporal workflow in pipeline order.
+4. **Teams and orchestration**: implement each peer team's service/graph + reflection + validation; wire orchestration activities to call those teams in Temporal workflow order.
 5. **Frontend and play**: prompt UI, project/status page, artifact viewer, game bundle serving, Phaser runner, Play button.
 6. **Quality and polish**: integration tests for workflow slices, Playwright E2E, error handling, retry/timeout policy, operational docs.
 
@@ -137,16 +142,16 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 
 ## 7. Studio teams and codebase mapping
 
-- **Team** = logical owner of a subset of artifacts and prompts; implemented as package under `application.team.<name>` (agents, reflection services, graph contracts/helpers).
+- **Team** = logical owner of a subset of artifacts and prompts; implemented as peer modules under `team.<name>`, not under `orchestration`. Each team may have its own `domain`, `application`, `infrastructure`, and `interfaces` packages scoped to that team's responsibilities.
 - **Template per team**: Inputs (which artifacts to read), Outputs (which artifacts to write), Quality bar, Internal process (at least one reflection round).
-- **Mapping**: design → `application.team.design`, story → `application.team.story`, art → `application.team.art`, engineering → `application.team.engineering`, qa → `application.team.qa`, direction → `application.team.direction`. Art team may create BINARY_ASSET artifacts; payload is JSON with a reference to the file/blob.
+- **Mapping**: design → `team.design.*`, story → `team.story.*`, art → `team.art.*`, engineering → `team.engineering.*`, qa → `team.qa.*`, direction → `team.direction.*`. Art team may create BINARY_ASSET artifacts; payload is JSON with a reference to the file/blob.
 
 ---
 
 ## 8. Agent contracts and reflection pattern
 
-- **Contracts**: Each agent output = domain data class in `domain.model`. Team packages define prompt template and JSON skeleton (including file refs: `assetFilePath`, `assetUrl`, `blobId`). Request JSON-only (or provider structured mode); parse and validate into domain classes.
-- **Framework boundary**: Application code exposes stable interfaces such as `AgentGraph<I, O>`, `LlmModel`, and `LlmRouter`. LangGraph4j, provider SDKs, and Temporal clients live behind adapters and must not leak into domain models, REST DTOs, or persisted artifact contracts.
+- **Contracts**: Each agent output = a domain data class owned by the responsible module (for example `team.design.domain.model.DesignPillars` or orchestration-owned project/artifact state in `orchestration.domain.model`). Team packages define prompt template and JSON skeleton (including file refs: `assetFilePath`, `assetUrl`, `blobId`). Request JSON-only (or provider structured mode); parse and validate into domain classes.
+- **Framework boundary**: Application code exposes stable interfaces such as `AgentGraph<I, O>`, `LlmModel`, `LlmRouter`, and workflow-runner ports. Spring annotations, Temporal annotations/clients, LangGraph4j, and provider SDKs live behind adapters and must not leak into domain models, application use cases/ports, REST DTOs, or persisted artifact contracts.
 - **Reflection**: draft → critique (structured JSON: issues, severity, suggestions) → revise (LLM or deterministic) → validate → finalize; optionally persist `REFLECTION_NOTE`.
 
 ---
@@ -154,9 +159,9 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 ## 9. Workflow evolution, handling gaps, and conventions for AI development
 
 - **Durability**: ProjectStatus and Artifact rows are the app/UI source of truth; Temporal workflow history is the execution/recovery source of truth. Steps with `*_DONE` do not re-run unless "re-run from here" is added. On failure: set FAILED, optionally REFLECTION_NOTE.
-- **Extending pipeline**: Add artifacts in domain.model (with file refs if needed), extend ProjectStatus, add team activity/graph in correct `application.team.*`, wire activity into `GameGenerationWorkflow`, and update context builders. Prefer additive changes.
-- **Gaps**: Domain detail → use DesignPillars and artifacts, document in REFLECTION_NOTE. Architectural change → conform to DDD/onion (domain → application → infrastructure → interfaces; no domain → infrastructure). New artifact/team → update enum and this doc or REFLECTION_NOTE.
-- **Conventions**: One coherent unit of work (one team activity+graph+integration test, one use case, one frontend feature). New team logic → `application.team.*`; new domain → `domain.model`/`domain.service`; new endpoints → `interfaces.web` + `application.usecase`. Prefer integration tests for API → workflow/activity → persistence behavior, with mocked/fake LLMs where needed.
+- **Extending pipeline**: Add team-owned output models in the relevant `team.<name>.domain.model` when they are team-specific; add orchestration-owned project/artifact state in `orchestration.domain.model`; extend ProjectStatus; add artifact-producing team service/graph in correct `team.<name>.application`; wire Temporal workflow/activity adapters in `orchestration.infrastructure.temporal` to plain application use cases/ports; update context builders. Prefer additive changes.
+- **Gaps**: Domain detail → use DesignPillars and artifacts, document in REFLECTION_NOTE. Architectural change → conform to the local onion of the module being changed (`<module>.domain` → `<module>.application` → `<module>.infrastructure` / `<module>.interfaces`; no domain → infrastructure). New artifact/team → update enum and this doc or REFLECTION_NOTE.
+- **Conventions**: One coherent unit of work (one team service/graph+integration test, one use case, one frontend feature). New team logic → `team.<name>.application` with team-specific domain in `team.<name>.domain`; new orchestration domain → `orchestration.domain.model`/`orchestration.domain.service`; new endpoints → `orchestration.interfaces.web` + `orchestration.application.usecase`. Prefer integration tests for API → workflow/activity → team service → persistence behavior, with mocked/fake LLMs where needed.
 - **Multi-model**: New capability → extend ModelCapability and config; changing model for existing capability → keep contracts stable, update tests first.
 
 ---
@@ -164,6 +169,6 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 ## 10. Summary
 
 - **Stack**: SvelteKit (Svelte 5) + Tailwind + Phaser 3 (frontend); Kotlin + Spring Boot + Exposed + PostgreSQL (backend); Temporal for durable workflows; LangGraph4j for bounded team agent graphs.
-- **Architecture**: Single repo, REST API, Temporal-backed generation workflow, team-based activities/graphs in backend; frontend: prompt UI, artifact viewer, Phaser runner.
+- **Architecture**: Single repo, REST API, Temporal-backed orchestration workflow coordinating peer team services/graphs in backend; frontend: prompt UI, artifact viewer, Phaser runner.
 - **Flow**: User prompt → full studio pipeline → structured artifacts + file-backed assets (referenced by JSON) + game bundle → user sees artifacts and plays in browser.
 - **Tasks**: Phased; each task implementable and reviewable in a focused pass.

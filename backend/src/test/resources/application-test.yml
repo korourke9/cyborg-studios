@@ -8,3 +8,8 @@ spring:
   ai:
     openai:
       api-key: test-key
+
+app:
+  temporal:
+    namespace: default
+    task-queue: game-generation-test

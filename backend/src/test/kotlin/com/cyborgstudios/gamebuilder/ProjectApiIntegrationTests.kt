@@ -1,8 +1,8 @@
 package com.cyborgstudios.gamebuilder
 
-import com.cyborgstudios.gamebuilder.interfaces.web.dto.CreateProjectRequest
-import com.cyborgstudios.gamebuilder.interfaces.web.dto.CreateProjectResponse
-import com.cyborgstudios.gamebuilder.interfaces.web.dto.ProjectResponse
+import com.cyborgstudios.gamebuilder.orchestration.interfaces.web.dto.CreateProjectRequest
+import com.cyborgstudios.gamebuilder.orchestration.interfaces.web.dto.CreateProjectResponse
+import com.cyborgstudios.gamebuilder.orchestration.interfaces.web.dto.ProjectResponse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
