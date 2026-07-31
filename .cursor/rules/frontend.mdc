@@ -1,5 +1,5 @@
 ---
-description: Svelte 5, SvelteKit, and TypeScript standards for the frontend
+description: Next.js, React, and TypeScript standards for the frontend
 globs: frontend/**
 alwaysApply: false
 ---
@@ -7,8 +7,8 @@ alwaysApply: false
 # Frontend standards
 
 - **Design doc**: For UI that displays projects, artifacts, or the game runner, follow the flows and artifact types in [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md). Project page shows status per phase and artifacts grouped by team; artifact viewer supports structured JSON and file references (e.g. images via URL or blob).
-- **Svelte 5**: Use runes for reactivity: `$state`, `$derived`, `$effect`, `$bindable` where appropriate. Prefer deep reactivity (objects/arrays) without manual reassignment. Use TypeScript with strict mode; interfaces for public shapes.
-- **SvelteKit**: Follow recommended layout (`+layout.svelte`/`+layout.ts`, `+page.svelte`). Use route params for project and play (e.g. `projects/[id]`, `play/[id]`). Load data in `+page.ts` or load functions; keep components presentational where possible. File naming: lowercase with hyphens; component names in PascalCase when used.
+- **Next.js**: Use the App Router (`app/`). Prefer Server Components by default; use Client Components (`"use client"`) for interactivity (forms, polling). Use TypeScript with strict mode; interfaces/types for public shapes.
+- **Routing**: Use route segments for project and play (e.g. `app/projects/[id]`, `app/play/[id]`) when those surfaces exist. Keep page components focused; extract shared UI into `components/`.
 - **API**: Use a small typed client (e.g. under `lib/api`) for REST calls. Poll GET `/api/projects/:id` for status and artifacts until terminal state; do not block the UI on long-running generation.
-- **Phaser runner**: Isolate the game in a dedicated route or iframe so Svelte and Phaser do not conflict. Load the game bundle from the API (script + asset base URL) and bootstrap Phaser in that context.
+- **Phaser runner**: Isolate the game in a dedicated route or iframe so React and Phaser do not conflict. Load the game bundle from the API (script + asset base URL) and bootstrap Phaser in that context.
 - **Testing**: Vitest for unit tests; Playwright for E2E (e.g. submit prompt, wait for completion or mocked path, open project page, open play, assert canvas present). Use Tailwind for styling; keep accessibility in mind for artifact viewer and forms.

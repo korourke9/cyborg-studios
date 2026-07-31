@@ -1,25 +1,25 @@
-FROM node:22-alpine AS build
-
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG PUBLIC_API_BASE_URL=http://localhost:8080
-ENV PUBLIC_API_BASE_URL=$PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN npm run build
 
-FROM node:22-alpine
-
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-ENV HOST=0.0.0.0
+ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-COPY --from=build /app/build ./build
-COPY --from=build /app/package.json ./
-COPY --from=build /app/package-lock.json ./
-RUN npm install --omit=dev
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
-CMD ["node", "build/index.js"]
+CMD ["node", "server.js"]

@@ -1,76 +1,54 @@
-import { getApiBaseUrl } from './config';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+  "http://localhost:8080";
 
-export type ProjectStatus =
-	| 'PENDING'
-	| 'VISION_IN_PROGRESS'
-	| 'VISION_DONE'
-	| 'DESIGN_IN_PROGRESS'
-	| 'DESIGN_DONE'
-	| 'STORY_IN_PROGRESS'
-	| 'STORY_DONE'
-	| 'ART_IN_PROGRESS'
-	| 'ART_DONE'
-	| 'ENGINEERING_IN_PROGRESS'
-	| 'ENGINEERING_DONE'
-	| 'QA_IN_PROGRESS'
-	| 'QA_DONE'
-	| 'FINAL_REVIEW_IN_PROGRESS'
-	| 'FINAL_REVIEW_DONE'
-	| 'DONE'
-	| 'FAILED';
-
-export type Artifact = {
-	id: string;
-	type: string;
-	payload: string;
-	createdAt: number;
+export type ArtifactDetails = {
+  id: string;
+  type: string;
+  payload: string;
+  createdAt: number;
 };
 
 export type ProjectDetails = {
-	id: string;
-	prompt: string;
-	status: ProjectStatus;
-	createdAt: number;
-	updatedAt: number;
-	artifacts: Artifact[];
+  id: string;
+  prompt: string;
+  status: string;
+  createdAt: number;
+  updatedAt: number;
+  artifacts: ArtifactDetails[];
 };
 
-type CreateProjectResponse = {
-	projectId: string;
-	status: ProjectStatus;
+export type CreateProjectResponse = {
+  projectId: string;
+  status: string;
 };
-
-function toUrl(path: string): string {
-	return `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-async function parseJson<T>(res: Response): Promise<T> {
-	if (!res.ok) {
-		throw new Error(`API ${res.status}: ${res.statusText}`);
-	}
-	return (await res.json()) as T;
-}
 
 export async function fetchText(path: string): Promise<string> {
-	const res = await fetch(toUrl(path));
-	if (!res.ok) {
-		throw new Error(`API ${res.status}: ${res.statusText}`);
-	}
-	return res.text();
+  const response = await fetch(`${API_BASE_URL}${path}`);
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  return response.text();
 }
 
-export async function createProject(prompt: string): Promise<CreateProjectResponse> {
-	const res = await fetch(toUrl('/api/projects'), {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ prompt })
-	});
-	return parseJson<CreateProjectResponse>(res);
+export async function createProject(
+  prompt: string,
+): Promise<CreateProjectResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  });
+  if (!response.ok) {
+    throw new Error(`Create project failed (${response.status})`);
+  }
+  return response.json() as Promise<CreateProjectResponse>;
 }
 
 export async function getProject(projectId: string): Promise<ProjectDetails> {
-	const res = await fetch(toUrl(`/api/projects/${projectId}`));
-	return parseJson<ProjectDetails>(res);
+  const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
+  if (!response.ok) {
+    throw new Error(`Get project failed (${response.status})`);
+  }
+  return response.json() as Promise<ProjectDetails>;
 }

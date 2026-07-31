@@ -1,7 +1,7 @@
+Dockerfile*
+.dockerignore
 node_modules
-.svelte-kit
-build
+npm-debug.log*
+README.md
+.next
 .git
-*.md
-playwright-report
-test-results

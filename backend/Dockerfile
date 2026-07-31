@@ -1,16 +1,13 @@
-FROM gradle:8.7-jdk21 AS build
+FROM python:3.12-slim
 
 WORKDIR /app
-COPY . .
 
-RUN gradle bootJar --no-daemon
+COPY pyproject.toml ./
+COPY src ./src
 
-FROM eclipse-temurin:21-jre
+RUN pip install --no-cache-dir .
 
-WORKDIR /app
-COPY --from=build /app/build/libs/*.jar app.jar
+ENV PORT=8080
+EXPOSE 8080
 
-ENV JAVA_OPTS=""
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
-
+CMD ["uvicorn", "gamebuilder.main:app", "--host", "0.0.0.0", "--port", "8080"]
