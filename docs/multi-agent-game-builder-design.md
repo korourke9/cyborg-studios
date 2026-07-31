@@ -8,19 +8,19 @@
 | **Frontend**                  | TypeScript, Next.js (App Router), Tailwind, Vitest, Playwright        | App Router for SSR/client components; Playwright for E2E on prompt → play flow.                                        |
 | **Backend**                   | Python 3.12+, FastAPI, SQLAlchemy 2.0 (async), PostgreSQL, uv         | FastAPI for typed REST; SQLAlchemy async + asyncpg; uv for packaging.                                                  |
 | **Durable workflow harness**  | Temporal Python SDK, hosted from the FastAPI backend process          | Durable, observable, resumable execution for long-running generation pipelines, retries, timers, and future signals.   |
-| **Agent graph framework**     | LangGraph (Python), scoped inside bounded team activities             | Team reasoning is graph-shaped without making the whole app a graph runtime.                                           |
-| **LLM/provider abstraction**  | Internal `LlmRouter`, `LlmModel`, `AgentGraph[I, O]` protocols        | Keeps provider SDKs and LangGraph out of domain/application contracts; model routing remains swappable.                |
+| **Agent framework**           | PydanticAI (team agents); optional LangGraph adapter                  | Structured outputs + tools for team agents; frameworks stay behind team ports.                                         |
+| **LLM/provider abstraction**  | Internal `LlmRouter`, `LlmModel`, `AgentGraph[I, O]` protocols        | Keeps provider SDKs and agent frameworks out of domain/application contracts; cloud and local models stay swappable. |
 | **Game runtime**              | Phaser 3 (browser)                                                    | Strong fit for 2D platformers; single-genre MVP keeps scope manageable.                                                |
 | **Testing**                   | Backend pytest integration tests for workflow slices; Playwright E2E  | The app is orchestration-heavy, so integration tests should verify API → workflow → artifacts.                        |
 
 
 **Other dependencies to add**
 
-- **Backend**: FastAPI, Temporal Python SDK, LangGraph (when agent graphs go live), SQLAlchemy + asyncpg, optional Alembic for migrations later.
+- **Backend**: FastAPI, Temporal Python SDK, PydanticAI (agents), optional LangGraph, SQLAlchemy + asyncpg, optional Alembic for migrations later.
 - **Frontend**: Phaser 3 (only in the "game runner" surface that loads generated games), plus the Next.js stack.
-- **Agents**: Team modules in Python own prompts, graph definitions, reflection, parsing, and validation. LangGraph is an implementation detail behind internal `AgentGraph[I, O]` style protocols.
+- **Agents**: Team modules own prompts, contracts, and reflection shape. **PydanticAI** is the default infrastructure adapter behind team `*AgentGraph` ports (structured outputs). Optional adapters (LangGraph, raw `LlmModel` reflective loop) stay swappable.
 
-**LLM API**: Assume one primary provider (e.g. OpenAI) with API key in config; design so swapping provider is a small change through `LlmRouter` and `LlmModel`.
+**LLM backends**: Team/application code uses only `LlmRouter` / `LlmModel`. Provider SDKs and HTTP clients live under `orchestration.infrastructure.llm`. Supported out of the box: cloud OpenAI, and OpenAI-compatible local servers (Ollama, vLLM, LM Studio, etc.) via `LLM_PROVIDER` + optional `LLM_BASE_URL`. Adding another backend is an infrastructure adapter, not a team change.
 
 ---
 
@@ -42,15 +42,15 @@ There are no repo-wide top-level `domain`, `application`, `infrastructure`, or `
 - **Application**:
   - `orchestration.application.usecase`: `CreateProjectUseCase`, `GetProjectUseCase`, `StartProjectGenerationUseCase`, step use cases (e.g. `RunVisionStepUseCase`), `FailProjectUseCase`.
   - `orchestration.application.port`: framework-neutral ports such as `GenerationWorkflowRunner`; no FastAPI, Temporal, LangGraph, or provider SDK imports.
-- **Infrastructure**: `orchestration.infrastructure.persistence` (SQLAlchemy models, repositories), `orchestration.infrastructure.temporal` (workflow/activity definitions, client/worker wiring, workflow-runner adapter), `orchestration.infrastructure.llm` (LLM clients, LangGraph adapters, routing — Phase 3+), `orchestration.infrastructure.gamebundle` (bundle storage), `orchestration.infrastructure.config`.
+- **Infrastructure**: `orchestration.infrastructure.persistence` (SQLAlchemy models, repositories), `orchestration.infrastructure.temporal` (workflow/activity definitions, client/worker wiring, workflow-runner adapter), `orchestration.infrastructure.llm` (provider adapters implementing `LlmModel` / `LlmRouter` only), `orchestration.infrastructure.gamebundle` (bundle storage), `orchestration.infrastructure.config`.
 - **Interfaces/adapters**: `orchestration.interfaces.web` (REST routers and DTOs).
 - **Studio teams** (each with its own local onion as needed):
-  - `team.design.domain`, `team.design.application`, `team.design.infrastructure`: `CreativeDirectorAgentService`, `DesignersAgentService`, optional `DesignTeamReflectionService`.
-  - `team.story.domain`, `team.story.application`, `team.story.infrastructure`: `WritersAgentService`, `StoryTeamReflectionService`.
-  - `team.art.domain`, `team.art.application`, `team.art.infrastructure`: `ArtTeamAgentService`, `ArtTeamReflectionService`.
-  - `team.engineering.domain`, `team.engineering.application`, `team.engineering.infrastructure`: `EngineersAgentService`, `EngineeringTeamReflectionService`.
-  - `team.qa.domain`, `team.qa.application`, `team.qa.infrastructure`: `QaAgentService`, optional `QaTeamReflectionService`.
-  - `team.direction.domain`, `team.direction.application`, `team.direction.infrastructure`: `DirectorAgentService`, `DirectionTeamReflectionService`.
+  - `team.design.domain`, `team.design.application`, `team.design.infrastructure`: `DesignersAgentService`, `DesignReflectionProcess`, `DesignAgentGraph` implementations (reflective default; optional LangGraph adapter; deterministic stub).
+  - `team.story.domain`, `team.story.application`, `team.story.infrastructure`: `WritersAgentService`, story reflection.
+  - `team.art.domain`, `team.art.application`, `team.art.infrastructure`: `ArtTeamAgentService`, art reflection.
+  - `team.engineering.domain`, `team.engineering.application`, `team.engineering.infrastructure`: `EngineersAgentService`, engineering reflection.
+  - `team.qa.domain`, `team.qa.application`, `team.qa.infrastructure`: `QaAgentService`, optional QA reflection.
+  - `team.producer.domain`, `team.producer.application`, `team.producer.infrastructure`: `ProducerAgentService`, producer reflection (coherence / ship call).
 
 **Artifact storage**
 
@@ -66,7 +66,7 @@ There are no repo-wide top-level `domain`, `application`, `infrastructure`, or `
 
 1. User opens app, enters prompt (e.g. "Mario in the style of Ghibli meets Van Gogh"), triggers "Generate".
 2. Backend starts a Temporal workflow asynchronously; frontend receives `projectId` and polls GET `/api/projects/:id` for status and artifacts.
-3. As artifacts are ready, they appear in the UI (Vision, Pillars, Design, Story, Art, Engineering, QA, Director).
+3. As artifacts are ready, they appear in the UI (Vision, Pillars, Design, Story, Art, Engineering, QA, Producer).
 4. When pipeline finishes, "Play" is enabled; user clicks "Play" and the game runs via Phaser runner loading the generated bundle.
 5. No edit/refinement in MVP; user can start a new prompt for a new game.
 
@@ -77,26 +77,26 @@ User sees intermediate artifacts and can give feedback; backend creates a new ve
 
 ## 4. Agentic workflows
 
-**Single genre (2D platformer).** Project-level pipeline: Creative Director → Designers → Writers → Art → Engineers → QA → Director.
+**Single genre (2D platformer).** Project-level pipeline: Design (includes vision) → Writers → Art → Engineers → QA → Producer.
 
-There are two graph layers, and they must not duplicate each other:
+There are two control layers, and they must not duplicate each other:
 
-- **Temporal workflow graph**: Owns the durable project pipeline, team ordering, retries, timers, crash recovery, and future user feedback signals. It coordinates teams but does not contain team logic.
-- **LangGraph team graphs**: Own bounded, internal agent reasoning inside a team activity, such as draft → critique → revise → validate → finalize.
+- **Temporal workflow**: Owns the durable project pipeline, team ordering, retries, timers, crash recovery, and future user feedback signals. It coordinates teams but does not contain team logic.
+- **Team reflection process**: Owns bounded, internal agent reasoning inside a team activity, such as draft → critique → revise → validate → finalize. Contracts and prompts live in team **application**; **PydanticAI** (default) and other frameworks live in team **infrastructure** behind `AgentGraph` / team-specific ports.
 
 **Teams and artifact ownership**
 
-- **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec.
+- **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec. Early creative vision lives here (no separate Creative Director team).
 - **Story team** (`team.story.*`): NarrativeSpec, QuestBeats.
 - **Art team** (`team.art.*`): ArtDirection, AssetList, AssetPrompts; may create BINARY_ASSET artifacts (payload = JSON with file/blob reference).
 - **Engineering team** (`team.engineering.*`): GameBundle.
 - **QA team** (`team.qa.*`): QaIssues.
-- **Direction team** (`team.direction.*`): CoherenceReview, DirectorNotes.
+- **Producer team** (`team.producer.*`): CoherenceReview, ProducerNotes (ship / cut / coherence call across teams).
 
 **Core artifact model**
 
-- `Project`: id, prompt, status (PENDING | stage-specific `*_IN_PROGRESS` / `*_DONE` values such as VISION_IN_PROGRESS and DESIGN_DONE | DONE | FAILED), createdAt, updatedAt.
-- `Artifact`: id, projectId, type (VISION_DOC | DESIGN_PILLARS | MECHANICS_SPEC | SYSTEMS_SPEC | NARRATIVE_SPEC | QUEST_BEATS | ART_DIRECTION | ASSET_LIST | ASSET_PROMPTS | GAME_BUNDLE | QA_ISSUES | COHERENCE_REVIEW | DIRECTOR_NOTES | REFLECTION_NOTE | BINARY_ASSET), payload (JSON or JSON with file/blob reference for unstructured data), createdAt.
+- `Project`: id, prompt, status (PENDING | stage-specific `*_IN_PROGRESS` / `*_DONE` values such as VISION_IN_PROGRESS, DESIGN_DONE, PRODUCER_DONE | DONE | FAILED), createdAt, updatedAt.
+- `Artifact`: id, projectId, type (VISION_DOC | DESIGN_PILLARS | MECHANICS_SPEC | SYSTEMS_SPEC | NARRATIVE_SPEC | QUEST_BEATS | ART_DIRECTION | ASSET_LIST | ASSET_PROMPTS | GAME_BUNDLE | QA_ISSUES | COHERENCE_REVIEW | PRODUCER_NOTES | REFLECTION_NOTE | BINARY_ASSET), payload (JSON or JSON with file/blob reference for unstructured data), createdAt.
 
 **Durable, resumable orchestration**
 
@@ -108,14 +108,14 @@ There are two graph layers, and they must not duplicate each other:
 
 **Internal team reflection**
 
-- Every team uses **draft → critique → revise → validate → finalize**. This is modeled as a LangGraph graph behind an internal application protocol, not as framework-specific domain logic.
+- Every team uses **draft → critique → revise → validate → finalize**. Output contracts and prompts live in team application (e.g. `DesignArtifactBundle`, `CritiqueResult`). The default live adapter is **PydanticAI** (`PydanticAIDesignAgentGraph`). Alternate adapters: raw `LlmModel` reflective loop, optional LangGraph, and deterministic stub.
 - Critique checks alignment with DesignPillars and team charter; revision may be LLM-driven or deterministic; validation parses and checks the contract before artifacts are persisted. Optionally persist `REFLECTION_NOTE`.
 
 **Context provisioning**  
 Per-team context builders assemble only the artifacts that team needs. For MVP, pass full artifacts.
 
 **Multi-model routing**  
-`ModelCapability` enum and `LlmRouter.for_capability(...)` return a configured `LlmModel`. Config maps capabilities (CREATIVE_DIRECTOR, DESIGN, WRITING, ART, ENGINEERING, QA, DIRECTOR) to model IDs so different roles can use different models later. LangGraph nodes call `LlmModel` through this interface rather than provider SDKs directly.
+`ModelCapability` enum and `LlmRouter.for_capability(...)` return a configured `LlmModel`. Config maps capabilities (DESIGN, WRITING, ART, ENGINEERING, QA, PRODUCER) to model IDs via transport-agnostic settings (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_*`). Team process code calls `LlmModel` rather than provider SDKs or HTTP clients directly.
 
 ---
 
@@ -124,9 +124,9 @@ Per-team context builders assemble only the artifacts that team needs. For MVP, 
 Tasks are sized for one agent or human to implement and another to review. Phases:
 
 1. **Foundation** *(done — rebuilt on Python/FastAPI + Next.js)*: repo, backend skeleton, DB/SQLAlchemy, frontend skeleton, Docker Compose.
-2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts. Current slice: deterministic design team produces four artifacts and marks project `DONE`.
-3. **Agent graph foundation** *(next)*: add internal `LlmModel`, `LlmRouter`, `ModelCapability`, and `AgentGraph[I, O]` boundaries; add LangGraph behind those boundaries for the first team graph (replace deterministic design stub).
-4. **Teams and orchestration**: implement each peer team's service/graph + reflection + validation; wire orchestration activities to call those teams in Temporal workflow order.
+2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts.
+3. **Agent graph foundation** *(done)*: `LlmModel`, `LlmRouter`, `ModelCapability`, `AgentGraph[I, O]`; design contracts in application; **PydanticAI** default agent adapter; optional reflective/`LlmModel` and LangGraph adapters; deterministic fallback; transport-agnostic LLM config (cloud + local).
+4. **Teams and orchestration** *(next)*: implement each peer team's service/graph + reflection + validation; wire orchestration activities to call those teams in Temporal workflow order (including Producer).
 5. **Frontend and play**: richer project/status page, artifact viewer by team, game bundle serving, Phaser runner, Play button.
 6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E, error handling, retry/timeout policy, operational docs.
 
@@ -145,15 +145,15 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 
 - **Team** = logical owner of a subset of artifacts and prompts; implemented as peer modules under `team.<name>`, not under `orchestration`. Each team may have its own `domain`, `application`, `infrastructure`, and `interfaces` packages scoped to that team's responsibilities.
 - **Template per team**: Inputs (which artifacts to read), Outputs (which artifacts to write), Quality bar, Internal process (at least one reflection round).
-- **Mapping**: design → `team.design.*`, story → `team.story.*`, art → `team.art.*`, engineering → `team.engineering.*`, qa → `team.qa.*`, direction → `team.direction.*`. Art team may create BINARY_ASSET artifacts; payload is JSON with a reference to the file/blob.
+- **Mapping**: design → `team.design.*`, story → `team.story.*`, art → `team.art.*`, engineering → `team.engineering.*`, qa → `team.qa.*`, producer → `team.producer.*`. Art team may create BINARY_ASSET artifacts; payload is JSON with a reference to the file/blob.
 
 ---
 
 ## 8. Agent contracts and reflection pattern
 
 - **Contracts**: Each agent output = a domain model owned by the responsible module (for example `team.design.domain.model.DesignPillars` or orchestration-owned project/artifact state in `orchestration.domain.model`). Team packages define prompt template and JSON skeleton (including file refs: `assetFilePath`, `assetUrl`, `blobId`). Request JSON-only (or provider structured mode); parse and validate into domain models.
-- **Framework boundary**: Application code exposes stable protocols such as `AgentGraph[I, O]`, `LlmModel`, `LlmRouter`, and workflow-runner ports. FastAPI, Temporal clients, LangGraph, and provider SDKs live behind adapters and must not leak into domain models, application use cases/ports, REST DTOs, or persisted artifact contracts.
-- **Reflection**: draft → critique (structured JSON: issues, severity, suggestions) → revise (LLM or deterministic) → validate → finalize; optionally persist `REFLECTION_NOTE`.
+- **Framework boundary**: Team application owns contracts/prompts. Stable ports include `AgentGraph[I, O]`, `LlmModel`, `LlmRouter`, and workflow-runner ports. **PydanticAI** is the preferred agent adapter in team infrastructure; LangGraph/`LlmModel` loops remain optional. FastAPI, Temporal, PydanticAI, LangGraph, and provider SDKs must not leak into domain models, application use cases/ports, REST DTOs, or persisted artifact contracts.
+- **Reflection**: draft → critique (structured JSON: issues, severity, suggestions) → revise → validate → finalize; optionally persist `REFLECTION_NOTE`.
 
 ---
 
@@ -169,7 +169,7 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 
 ## 10. Summary
 
-- **Stack**: Next.js (App Router) + Tailwind + Phaser 3 (frontend); Python + FastAPI + SQLAlchemy + PostgreSQL (backend); Temporal for durable workflows; LangGraph for bounded team agent graphs.
-- **Architecture**: Single repo, REST API, Temporal-backed orchestration workflow coordinating peer team services/graphs in backend; frontend: prompt UI, artifact viewer, Phaser runner.
-- **Flow**: User prompt → full studio pipeline → structured artifacts + file-backed assets (referenced by JSON) + game bundle → user sees artifacts and plays in browser.
-- **Tasks**: Phased; each task implementable and reviewable in a focused pass. Phases 1–2 rebuilt on the current stack; Phase 3+ is next.
+- **Stack**: Next.js (App Router) + Tailwind + Phaser 3 (frontend); Python + FastAPI + SQLAlchemy + PostgreSQL (backend); Temporal for durable workflows; PydanticAI for team agents (optional LangGraph / raw LLM adapters).
+- **Architecture**: Single repo, REST API, Temporal-backed orchestration coordinating peer team services in backend; frontend: prompt UI, artifact viewer, Phaser runner.
+- **Flow**: User prompt → studio pipeline (Design → Story → Art → Engineering → QA → Producer) → structured artifacts + file-backed assets + game bundle → user sees artifacts and plays in browser.
+- **Tasks**: Phased; each task implementable and reviewable in a focused pass. Phases 1–3 done on the current stack; Phase 4+ (remaining teams, Phaser play, polish) is next.

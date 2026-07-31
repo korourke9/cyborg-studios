@@ -53,6 +53,13 @@ services:
       TEMPORAL_TASK_QUEUE: game-generation
       PORT: 8080
       CORS_ALLOWED_ORIGINS: http://localhost:3000
+      LLM_PROVIDER: ${LLM_PROVIDER:-none}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_JSON_MODE: ${LLM_JSON_MODE:-true}
+      DESIGN_AGENT_MODE: ${DESIGN_AGENT_MODE:-auto}
+      LLM_MODEL_DESIGN: ${LLM_MODEL_DESIGN:-gpt-4o-mini}
+      LLM_MODEL_PRODUCER: ${LLM_MODEL_PRODUCER:-gpt-4o-mini}
     ports:
       - "8080:8080"
 

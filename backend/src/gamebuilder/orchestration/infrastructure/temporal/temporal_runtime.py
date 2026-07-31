@@ -3,9 +3,16 @@ from uuid import UUID
 
 from temporalio.client import Client
 from temporalio.worker import Worker
+from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
 from gamebuilder.orchestration.infrastructure.temporal.activities import GameGenerationActivities
 from gamebuilder.orchestration.infrastructure.temporal.workflow import GameGenerationWorkflow
+
+# PydanticAI pulls in beartype import hooks; Temporal's workflow sandbox importer
+# deadlocks on them unless beartype is loaded via the host importer.
+_WORKFLOW_SANDBOX_RESTRICTIONS = SandboxRestrictions.default.with_passthrough_modules(
+    "beartype",
+)
 
 
 class TemporalGenerationWorkflowRunner:
@@ -52,4 +59,7 @@ def create_worker(
         task_queue=task_queue,
         workflows=[GameGenerationWorkflow],
         activities=[activities.run_vision_step, activities.fail_project],
+        workflow_runner=SandboxedWorkflowRunner(
+            restrictions=_WORKFLOW_SANDBOX_RESTRICTIONS,
+        ),
     )

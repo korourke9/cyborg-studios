@@ -12,6 +12,7 @@ from gamebuilder.orchestration.application.usecase.start_project_generation impo
     StartProjectGenerationUseCase,
 )
 from gamebuilder.orchestration.infrastructure.config.settings import Settings
+from gamebuilder.orchestration.infrastructure.llm.factory import create_llm_router
 from gamebuilder.orchestration.infrastructure.persistence.artifact_repository import (
     SqlAlchemyArtifactRepository,
 )
@@ -30,9 +31,8 @@ from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import (
     create_worker,
 )
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
-from gamebuilder.team.design.infrastructure.agent.deterministic_design_agent_graph import (
-    DeterministicDesignAgentGraph,
-)
+from gamebuilder.team.design.application.port.design_agent_graph import DesignAgentGraph
+from gamebuilder.team.design.infrastructure.config.factory import build_design_agent_graph
 
 
 @dataclass
@@ -52,6 +52,7 @@ async def build_container(
     *,
     temporal_client: Client | None = None,
     start_worker: bool = True,
+    design_agent_graph: DesignAgentGraph | None = None,
 ) -> AppContainer:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -59,7 +60,14 @@ async def build_container(
 
     project_repository = SqlAlchemyProjectRepository(session_factory)
     artifact_repository = SqlAlchemyArtifactRepository(session_factory)
-    designers = DesignersAgentService(DeterministicDesignAgentGraph())
+
+    if design_agent_graph is None:
+        design_agent_graph = build_design_agent_graph(
+            mode=settings.resolve_design_agent_mode(),
+            settings=settings,
+            llm_router=create_llm_router(settings),
+        )
+    designers = DesignersAgentService(design_agent_graph)
 
     run_vision = RunVisionStepUseCase(
         project_repository, artifact_repository, designers

@@ -9,7 +9,6 @@ from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from temporalio.testing import WorkflowEnvironment
-from temporalio.worker import Worker
 
 from gamebuilder.main import create_app
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
@@ -27,7 +26,7 @@ from gamebuilder.orchestration.infrastructure.persistence.project_repository imp
     SqlAlchemyProjectRepository,
 )
 from gamebuilder.orchestration.infrastructure.temporal.activities import GameGenerationActivities
-from gamebuilder.orchestration.infrastructure.temporal.workflow import GameGenerationWorkflow
+from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import create_worker
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.infrastructure.agent.deterministic_design_agent_graph import (
     DeterministicDesignAgentGraph,
@@ -41,6 +40,7 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
         database_url=f"sqlite+aiosqlite:///{db_path}",
         temporal_task_queue=f"test-game-generation-{uuid4()}",
         cors_allowed_origins="http://localhost:3000",
+        design_agent_mode="deterministic",
     )
 
     async with await WorkflowEnvironment.start_time_skipping() as env:
@@ -65,11 +65,10 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                     ),
                     FailProjectUseCase(project_repository),
                 )
-                worker = Worker(
+                worker = create_worker(
                     env.client,
-                    task_queue=cfg.temporal_task_queue,
-                    workflows=[GameGenerationWorkflow],
-                    activities=[activities.run_vision_step, activities.fail_project],
+                    cfg.temporal_task_queue,
+                    activities,
                 )
                 container.worker = worker
                 application.state.container = container

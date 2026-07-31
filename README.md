@@ -1,11 +1,11 @@
 # Multi-Agent Video Game Builder
 
-A multi-agent system that generates playable 2D platformer games from natural-language prompts. The backend orchestrates studio-style teams (Creative Director, Design, Story, Art, Engineering, QA, Director); the frontend shows progress and artifacts and runs the generated game in the browser via Phaser.
+A multi-agent system that generates playable 2D platformer games from natural-language prompts. The backend orchestrates studio-style teams (Design, Story, Art, Engineering, QA, Producer); the frontend shows progress and artifacts and runs the generated game in the browser via Phaser.
 
 ## For developers and AI agents
 
-- **Design and tasks**: Read [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md) before implementing features or changing architecture. It defines tech stack, application structure, team mapping, artifact model (including file/unstructured data via JSON references), Temporal-backed orchestration, LangGraph team graphs, and the task breakdown.
-- **Cursor rules**: Project rules live in [.cursor/rules/](.cursor/rules/). They encode design-and-architecture guidance, Python/FastAPI/SQLAlchemy/Temporal conventions, agentic-teams patterns (contracts, reflection, LangGraph boundaries, LLM routing), and frontend standards (Next.js App Router). The design doc is the source of truth; rules summarize and enforce it.
+- **Design and tasks**: Read [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md) before implementing features or changing architecture. It defines tech stack, application structure, team mapping, artifact model (including file/unstructured data via JSON references), Temporal-backed orchestration, team reflection processes, and the task breakdown.
+- **Cursor rules**: Project rules live in [.cursor/rules/](.cursor/rules/). They encode design-and-architecture guidance, Python/FastAPI/SQLAlchemy/Temporal conventions, agentic-teams patterns (contracts, reflection, framework boundaries, LLM routing), and frontend standards (Next.js App Router). The design doc is the source of truth; rules summarize and enforce it.
 - **Syncing rules**: To sync rules and docs between this repo and another location (e.g. a Cursor worktree or `~/.cursor/cyborg-studios`), use the [scripts/sync_rules](scripts/sync_rules) script. Run `./scripts/sync_rules` with no args for usage.
 
 ## Repo layout
@@ -18,8 +18,9 @@ A multi-agent system that generates playable 2D platformer games from natural-la
 ## Architecture direction
 
 - **Temporal** is the durable workflow harness for project-level generation: ordering, retries, crash recovery, timers, and future user feedback signals.
-- **LangGraph** is scoped to bounded team activities for internal agent reasoning graphs (for example draft → critique → revise → validate → finalize).
-- **Domain/application contracts stay framework-neutral** through internal protocols such as `LlmRouter`, `LlmModel`, and `AgentGraph[I, O]`. Temporal, LangGraph, and provider SDKs live behind adapters.
+- **Team reflection** (draft → critique → revise → validate) lives in team application over `LlmModel`; optional frameworks like LangGraph are thin infrastructure adapters behind team ports.
+- **Domain/application contracts stay framework-neutral** through internal protocols such as `LlmRouter`, `LlmModel`, and `AgentGraph[I, O]`. Temporal, PydanticAI, and provider SDKs live behind adapters.
+- **Team agents** use **PydanticAI** by default (structured outputs) behind team ports; optional LangGraph / raw LLM adapters remain available.
 
 ## Running locally
 
@@ -42,6 +43,25 @@ From the repo root:
 
 - **Logs**: `docker compose logs -f frontend` (or `backend`, `temporal`, `db`).
 - **Stop**: `docker compose down` (add `-v` only if you intend to wipe the database volume).
+
+### LLM / design agents
+
+Team code depends only on ports (`DesignAgentGraph`, `LlmModel` / `LlmRouter`). **PydanticAI** is the default live-agent adapter (structured outputs). Cloud and local model backends are wired in `orchestration.infrastructure.llm`.
+
+By default (`LLM_PROVIDER=none`) the design team uses a **deterministic stub**. Set a provider to use PydanticAI agents:
+
+```bash
+# Cloud
+export LLM_PROVIDER=openai
+export LLM_API_KEY=...
+
+# Local (Ollama)
+export LLM_PROVIDER=ollama
+export LLM_BASE_URL=http://127.0.0.1:11434/v1
+export LLM_MODEL_DESIGN=llama3.2
+# optional: DESIGN_AGENT_MODE=auto|pydantic_ai|reflective|langgraph|deterministic
+docker compose up --build -d
+```
 
 ### Local development without Docker (optional)
 
