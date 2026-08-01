@@ -16,6 +16,9 @@ from gamebuilder.orchestration.application.usecase.run_art_step import RunArtSte
 from gamebuilder.orchestration.application.usecase.run_engineering_step import (
     RunEngineeringStepUseCase,
 )
+from gamebuilder.orchestration.application.usecase.run_producer_step import (
+    RunProducerStepUseCase,
+)
 from gamebuilder.orchestration.application.usecase.run_qa_step import RunQaStepUseCase
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
@@ -47,6 +50,12 @@ from gamebuilder.team.engineering.infrastructure.agent.deterministic_engineering
 from gamebuilder.team.qa.application.qa_agent_service import QaAgentService
 from gamebuilder.team.qa.infrastructure.agent.deterministic_qa_agent_graph import (
     DeterministicQaAgentGraph,
+)
+from gamebuilder.team.producer.application.producer_agent_service import (
+    ProducerAgentService,
+)
+from gamebuilder.team.producer.infrastructure.agent.deterministic_producer_agent_graph import (
+    DeterministicProducerAgentGraph,
 )
 from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
 from gamebuilder.team.story.infrastructure.agent.deterministic_story_agent_graph import (
@@ -97,6 +106,10 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                     RunQaStepUseCase(
                         uow_factory,
                         QaAgentService(DeterministicQaAgentGraph()),
+                    ),
+                    RunProducerStepUseCase(
+                        uow_factory,
+                        ProducerAgentService(DeterministicProducerAgentGraph()),
                     ),
                     FailProjectUseCase(uow_factory),
                 )
@@ -166,6 +179,8 @@ async def test_create_then_poll_project_until_done(client: AsyncClient) -> None:
         "ASSET_PROMPTS",
         "GAME_BUNDLE",
         "QA_ISSUES",
+        "COHERENCE_REVIEW",
+        "PRODUCER_NOTES",
     }
 
     script = await client.get(f"/api/projects/{project_id}/bundle/entry.js")

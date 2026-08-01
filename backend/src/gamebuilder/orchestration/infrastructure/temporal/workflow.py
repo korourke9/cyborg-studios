@@ -40,6 +40,12 @@ class GameGenerationWorkflow:
                 start_to_close_timeout=timedelta(minutes=5),
                 retry_policy=retry,
             )
+            await workflow.execute_activity(
+                "runProducerStep",
+                project_id,
+                start_to_close_timeout=timedelta(minutes=5),
+                retry_policy=retry,
+            )
         except Exception:
             await workflow.execute_activity(
                 "failProject",

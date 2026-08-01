@@ -43,8 +43,6 @@ class RunQaStepUseCase:
             for artifact in self._qa_artifacts(project_id, qa_output):
                 await uow.artifacts.save(artifact)
             await uow.projects.update_status(project_id, ProjectStatus.QA_DONE)
-            # Pipeline ends here until Producer is wired.
-            await uow.projects.update_status(project_id, ProjectStatus.DONE)
 
     def _build_input(self, prompt: str, artifacts: list[Artifact]) -> QaTeamInput:
         vision_summary = ""

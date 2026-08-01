@@ -16,6 +16,9 @@ from gamebuilder.orchestration.application.usecase.run_art_step import RunArtSte
 from gamebuilder.orchestration.application.usecase.run_engineering_step import (
     RunEngineeringStepUseCase,
 )
+from gamebuilder.orchestration.application.usecase.run_producer_step import (
+    RunProducerStepUseCase,
+)
 from gamebuilder.orchestration.application.usecase.run_qa_step import RunQaStepUseCase
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
@@ -53,6 +56,15 @@ from gamebuilder.team.engineering.application.port.engineering_agent_graph impor
 from gamebuilder.team.engineering.infrastructure.config.factory import (
     build_engineering_agent_graph,
 )
+from gamebuilder.team.producer.application.port.producer_agent_graph import (
+    ProducerAgentGraph,
+)
+from gamebuilder.team.producer.application.producer_agent_service import (
+    ProducerAgentService,
+)
+from gamebuilder.team.producer.infrastructure.config.factory import (
+    build_producer_agent_graph,
+)
 from gamebuilder.team.qa.application.port.qa_agent_graph import QaAgentGraph
 from gamebuilder.team.qa.application.qa_agent_service import QaAgentService
 from gamebuilder.team.qa.infrastructure.config.factory import build_qa_agent_graph
@@ -86,6 +98,7 @@ async def build_container(
     art_agent_graph: ArtAgentGraph | None = None,
     engineering_agent_graph: EngineeringAgentGraph | None = None,
     qa_agent_graph: QaAgentGraph | None = None,
+    producer_agent_graph: ProducerAgentGraph | None = None,
 ) -> AppContainer:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -128,11 +141,19 @@ async def build_container(
         )
     qa = QaAgentService(qa_agent_graph)
 
+    if producer_agent_graph is None:
+        producer_agent_graph = build_producer_agent_graph(
+            mode=settings.resolve_producer_agent_mode(),
+            settings=settings,
+        )
+    producer = ProducerAgentService(producer_agent_graph)
+
     run_vision = RunVisionStepUseCase(uow_factory, designers)
     run_story = RunStoryStepUseCase(uow_factory, writers)
     run_art = RunArtStepUseCase(uow_factory, artists)
     run_engineering = RunEngineeringStepUseCase(uow_factory, engineers)
     run_qa = RunQaStepUseCase(uow_factory, qa)
+    run_producer = RunProducerStepUseCase(uow_factory, producer)
     fail_project = FailProjectUseCase(uow_factory)
 
     client = temporal_client or await create_temporal_client(
@@ -140,7 +161,13 @@ async def build_container(
     )
     runner = TemporalGenerationWorkflowRunner(client, settings.temporal_task_queue)
     activities = GameGenerationActivities(
-        run_vision, run_story, run_art, run_engineering, run_qa, fail_project
+        run_vision,
+        run_story,
+        run_art,
+        run_engineering,
+        run_qa,
+        run_producer,
+        fail_project,
     )
 
     worker: Worker | None = None

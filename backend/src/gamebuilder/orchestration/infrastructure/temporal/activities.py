@@ -7,6 +7,9 @@ from gamebuilder.orchestration.application.usecase.run_art_step import RunArtSte
 from gamebuilder.orchestration.application.usecase.run_engineering_step import (
     RunEngineeringStepUseCase,
 )
+from gamebuilder.orchestration.application.usecase.run_producer_step import (
+    RunProducerStepUseCase,
+)
 from gamebuilder.orchestration.application.usecase.run_qa_step import RunQaStepUseCase
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
@@ -20,6 +23,7 @@ class GameGenerationActivities:
         run_art_step_use_case: RunArtStepUseCase,
         run_engineering_step_use_case: RunEngineeringStepUseCase,
         run_qa_step_use_case: RunQaStepUseCase,
+        run_producer_step_use_case: RunProducerStepUseCase,
         fail_project_use_case: FailProjectUseCase,
     ) -> None:
         self._run_vision_step_use_case = run_vision_step_use_case
@@ -27,6 +31,7 @@ class GameGenerationActivities:
         self._run_art_step_use_case = run_art_step_use_case
         self._run_engineering_step_use_case = run_engineering_step_use_case
         self._run_qa_step_use_case = run_qa_step_use_case
+        self._run_producer_step_use_case = run_producer_step_use_case
         self._fail_project_use_case = fail_project_use_case
 
     @activity.defn(name="runVisionStep")
@@ -48,6 +53,10 @@ class GameGenerationActivities:
     @activity.defn(name="runQaStep")
     async def run_qa_step(self, project_id: str) -> None:
         await self._run_qa_step_use_case.execute(UUID(project_id))
+
+    @activity.defn(name="runProducerStep")
+    async def run_producer_step(self, project_id: str) -> None:
+        await self._run_producer_step_use_case.execute(UUID(project_id))
 
     @activity.defn(name="failProject")
     async def fail_project(self, project_id: str) -> None:
