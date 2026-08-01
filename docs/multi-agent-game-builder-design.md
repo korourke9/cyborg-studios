@@ -137,7 +137,7 @@ There are two control layers, and they must not duplicate each other:
 - **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec. Early creative vision lives here (no separate Creative Director team).
 - **Story team** (`team.story.*`): NarrativeSpec, ExperienceMilestones (ordered player-experience milestones).
 - **Art team** (`team.art.*`): ArtDirection (concept brief: hero/world/key scenes), AssetList, AssetPrompts; may create BINARY_ASSET artifacts later (payload = JSON with file/blob reference). MVP uses placeholder `fileRef`s — no generated images yet.
-- **Engineering team** (`team.engineering.*`): GameBundle.
+- **Engineering team** (`team.engineering.*`): GameBundle — structured Phaser 3 level (platforms, goal, palette hexes) plus compiled `entrySource` JS. Served at `GET /api/projects/{id}/bundle/entry.js` for the play cabinet.
 - **QA team** (`team.qa.*`): QaIssues.
 - **Producer team** (`team.producer.*`): CoherenceReview, ProducerNotes (ship / cut / coherence call across teams).
 
@@ -174,8 +174,8 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 1. **Foundation** *(done — rebuilt on Python/FastAPI + Next.js)*: repo, backend skeleton, DB/SQLAlchemy, frontend skeleton, Docker Compose.
 2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts.
 3. **Agent graph foundation** *(done)*: `LlmModel`, `LlmRouter`, `ModelCapability`, `AgentGraph[I, O]`; design contracts in application; **PydanticAI** default agent adapter; optional reflective/`LlmModel` and LangGraph adapters; deterministic fallback; transport-agnostic LLM config (cloud + local).
-4. **Teams and orchestration** *(in progress)*: Design + Story + Art wired in Temporal; remaining peer teams (Engineering → QA → Producer).
-5. **Frontend and play** *(in progress)*: studio desk with sidebar + project card; game bundle serving; Phaser on `/projects/[id]/play`.
+4. **Teams and orchestration** *(in progress)*: Design + Story + Art + Engineering wired in Temporal; remaining peer teams (QA → Producer).
+5. **Frontend and play** *(in progress)*: studio desk with sidebar + project card; GameBundle script serving; Phaser cabinet on `/projects/[id]/play`.
 6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E (prompt → desk → play), error handling, retry/timeout policy, operational docs.
 
 ---
@@ -183,7 +183,7 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 ## 6. Open decisions
 
 - Temporal is the default durable async harness; tune task queues, retry policies, and worker deployment as the app grows.
-- Game bundle: single JS file vs multi-file; multi-file may be better for large assets.
+- **Game bundle**: MVP stores a single `GAME_BUNDLE` JSON artifact with level geometry + compiled Phaser `entrySource`; API serves the script (`/bundle/entry.js`). Multi-file asset packs can come later.
 - Asset generation: MVP placeholders; later Art Team generates binaries, stored and referenced via JSON (e.g. BINARY_ASSET + AssetList entries with `fileRef`).
 - Schema migrations: create-tables-on-startup for early parity; introduce Alembic when schema churn warrants it.
 

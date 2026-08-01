@@ -7,9 +7,15 @@ from temporalio.worker import Worker
 from gamebuilder.orchestration.application.usecase.create_project import CreateProjectUseCase
 from gamebuilder.orchestration.application.usecase.delete_project import DeleteProjectUseCase
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
+from gamebuilder.orchestration.application.usecase.get_game_bundle_script import (
+    GetGameBundleScriptUseCase,
+)
 from gamebuilder.orchestration.application.usecase.get_project import GetProjectUseCase
 from gamebuilder.orchestration.application.usecase.list_projects import ListProjectsUseCase
 from gamebuilder.orchestration.application.usecase.run_art_step import RunArtStepUseCase
+from gamebuilder.orchestration.application.usecase.run_engineering_step import (
+    RunEngineeringStepUseCase,
+)
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.application.usecase.start_project_generation import (
@@ -37,6 +43,15 @@ from gamebuilder.team.art.infrastructure.config.factory import build_art_agent_g
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.application.port.design_agent_graph import DesignAgentGraph
 from gamebuilder.team.design.infrastructure.config.factory import build_design_agent_graph
+from gamebuilder.team.engineering.application.engineers_agent_service import (
+    EngineersAgentService,
+)
+from gamebuilder.team.engineering.application.port.engineering_agent_graph import (
+    EngineeringAgentGraph,
+)
+from gamebuilder.team.engineering.infrastructure.config.factory import (
+    build_engineering_agent_graph,
+)
 from gamebuilder.team.story.application.port.story_agent_graph import StoryAgentGraph
 from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
 from gamebuilder.team.story.infrastructure.config.factory import build_story_agent_graph
@@ -51,6 +66,7 @@ class AppContainer:
     list_projects: ListProjectsUseCase
     get_project: GetProjectUseCase
     delete_project: DeleteProjectUseCase
+    get_game_bundle_script: GetGameBundleScriptUseCase
     start_project_generation: StartProjectGenerationUseCase
     temporal_client: Client | None = None
     worker: Worker | None = None
@@ -64,6 +80,7 @@ async def build_container(
     design_agent_graph: DesignAgentGraph | None = None,
     story_agent_graph: StoryAgentGraph | None = None,
     art_agent_graph: ArtAgentGraph | None = None,
+    engineering_agent_graph: EngineeringAgentGraph | None = None,
 ) -> AppContainer:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -92,9 +109,17 @@ async def build_container(
         )
     artists = ArtTeamAgentService(art_agent_graph)
 
+    if engineering_agent_graph is None:
+        engineering_agent_graph = build_engineering_agent_graph(
+            mode=settings.resolve_engineering_agent_mode(),
+            settings=settings,
+        )
+    engineers = EngineersAgentService(engineering_agent_graph)
+
     run_vision = RunVisionStepUseCase(uow_factory, designers)
     run_story = RunStoryStepUseCase(uow_factory, writers)
     run_art = RunArtStepUseCase(uow_factory, artists)
+    run_engineering = RunEngineeringStepUseCase(uow_factory, engineers)
     fail_project = FailProjectUseCase(uow_factory)
 
     client = temporal_client or await create_temporal_client(
@@ -102,7 +127,7 @@ async def build_container(
     )
     runner = TemporalGenerationWorkflowRunner(client, settings.temporal_task_queue)
     activities = GameGenerationActivities(
-        run_vision, run_story, run_art, fail_project
+        run_vision, run_story, run_art, run_engineering, fail_project
     )
 
     worker: Worker | None = None
@@ -117,6 +142,7 @@ async def build_container(
         list_projects=ListProjectsUseCase(uow_factory),
         get_project=GetProjectUseCase(uow_factory),
         delete_project=DeleteProjectUseCase(uow_factory),
+        get_game_bundle_script=GetGameBundleScriptUseCase(uow_factory),
         start_project_generation=StartProjectGenerationUseCase(runner),
         temporal_client=client,
         worker=worker,

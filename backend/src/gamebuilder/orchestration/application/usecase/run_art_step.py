@@ -43,7 +43,6 @@ class RunArtStepUseCase:
             for artifact in self._art_artifacts(project_id, art_output):
                 await uow.artifacts.save(artifact)
             await uow.projects.update_status(project_id, ProjectStatus.ART_DONE)
-            await uow.projects.update_status(project_id, ProjectStatus.DONE)
 
     def _build_input(self, prompt: str, artifacts: list[Artifact]) -> ArtTeamInput:
         vision_summary = ""

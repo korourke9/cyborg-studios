@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PhaserCabinet } from "@/components/play/PhaserCabinet";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -20,15 +21,7 @@ export default async function PlayPage({ params }: Props) {
           PLAY CABINET
         </p>
       </header>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-        <p className="font-[family-name:var(--font-pixel)] text-[10px] leading-relaxed text-gold">
-          Phaser runner coming soon
-        </p>
-        <p className="max-w-md text-sm text-muted">
-          This route stays full-bleed for the game canvas. Engineering will drop
-          a GameBundle here; until then the desk still shows Design artifacts.
-        </p>
-      </div>
+      <PhaserCabinet projectId={id} />
     </main>
   );
 }

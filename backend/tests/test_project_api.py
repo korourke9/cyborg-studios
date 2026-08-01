@@ -13,6 +13,9 @@ from temporalio.testing import WorkflowEnvironment
 from gamebuilder.main import create_app
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
 from gamebuilder.orchestration.application.usecase.run_art_step import RunArtStepUseCase
+from gamebuilder.orchestration.application.usecase.run_engineering_step import (
+    RunEngineeringStepUseCase,
+)
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.infrastructure.config.container import (
@@ -33,6 +36,12 @@ from gamebuilder.team.art.infrastructure.agent.deterministic_art_agent_graph imp
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.infrastructure.agent.deterministic_design_agent_graph import (
     DeterministicDesignAgentGraph,
+)
+from gamebuilder.team.engineering.application.engineers_agent_service import (
+    EngineersAgentService,
+)
+from gamebuilder.team.engineering.infrastructure.agent.deterministic_engineering_agent_graph import (
+    DeterministicEngineeringAgentGraph,
 )
 from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
 from gamebuilder.team.story.infrastructure.agent.deterministic_story_agent_graph import (
@@ -75,6 +84,10 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                     RunArtStepUseCase(
                         uow_factory,
                         ArtTeamAgentService(DeterministicArtAgentGraph()),
+                    ),
+                    RunEngineeringStepUseCase(
+                        uow_factory,
+                        EngineersAgentService(DeterministicEngineeringAgentGraph()),
                     ),
                     FailProjectUseCase(uow_factory),
                 )
@@ -142,7 +155,13 @@ async def test_create_then_poll_project_until_done(client: AsyncClient) -> None:
         "ART_DIRECTION",
         "ASSET_LIST",
         "ASSET_PROMPTS",
+        "GAME_BUNDLE",
     }
+
+    script = await client.get(f"/api/projects/{project_id}/bundle/entry.js")
+    assert script.status_code == 200
+    assert "Phaser.Game" in script.text
+    assert "application/javascript" in script.headers["content-type"]
 
 
 async def test_get_unknown_project_returns_not_found(client: AsyncClient) -> None:

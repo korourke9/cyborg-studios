@@ -91,6 +91,20 @@ async def delete_project(project_id: UUID, request: Request) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.get(
+    "/api/projects/{project_id}/bundle/entry.js",
+    response_class=PlainTextResponse,
+)
+async def get_game_bundle_entry(project_id: UUID, request: Request) -> PlainTextResponse:
+    container = request.app.state.container
+    source = await container.get_game_bundle_script.execute(project_id)
+    return PlainTextResponse(
+        content=source,
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/", response_class=PlainTextResponse)
 async def welcome() -> str:
     return "Welcome to Cyborg Studios API"

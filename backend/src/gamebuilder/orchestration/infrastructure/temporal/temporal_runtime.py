@@ -62,6 +62,7 @@ def create_worker(
             activities.run_vision_step,
             activities.run_story_step,
             activities.run_art_step,
+            activities.run_engineering_step,
             activities.fail_project,
         ],
         workflow_runner=SandboxedWorkflowRunner(

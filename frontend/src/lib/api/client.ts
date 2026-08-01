@@ -2,6 +2,12 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
   "http://localhost:8080";
 
+export { API_BASE_URL };
+
+export function gameBundleEntryUrl(projectId: string): string {
+  return `${API_BASE_URL}/api/projects/${projectId}/bundle/entry.js`;
+}
+
 export type ArtifactDetails = {
   id: string;
   type: string;
