@@ -45,7 +45,6 @@ class RunStoryStepUseCase:
             for artifact in self._story_artifacts(project_id, story_output):
                 await uow.artifacts.save(artifact)
             await uow.projects.update_status(project_id, ProjectStatus.STORY_DONE)
-            await uow.projects.update_status(project_id, ProjectStatus.DONE)
 
     def _build_input(self, prompt: str, artifacts: list[Artifact]) -> StoryTeamInput:
         vision_summary = ""

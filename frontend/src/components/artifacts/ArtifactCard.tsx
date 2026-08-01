@@ -1,10 +1,25 @@
-import type { ParsedArtifact } from "@/lib/artifacts/display";
+"use client";
+
+import type { PaletteSwatch, ParsedArtifact } from "@/lib/artifacts/display";
 import { fieldsFromData } from "@/lib/artifacts/display";
+import { PaletteSwatchList } from "@/components/artifacts/PaletteSwatchList";
 
 type Props = {
   item: ParsedArtifact;
   featured?: boolean;
 };
+
+function isPaletteSwatches(
+  value: string | string[] | PaletteSwatch[],
+): value is PaletteSwatch[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    typeof value[0] === "object" &&
+    value[0] !== null &&
+    "hex" in value[0]
+  );
+}
 
 export function ArtifactCard({ item, featured = false }: Props) {
   const fields = item.parseError ? [] : fieldsFromData(item.data);
@@ -40,10 +55,12 @@ export function ArtifactCard({ item, featured = false }: Props) {
               <p className="font-[family-name:var(--font-pixel)] text-[8px] tracking-wide text-cyan">
                 {field.label}
               </p>
-              {Array.isArray(field.value) ? (
+              {field.kind === "colors" && isPaletteSwatches(field.value) ? (
+                <PaletteSwatchList swatches={field.value} />
+              ) : Array.isArray(field.value) ? (
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foam">
                   {field.value.map((entry) => (
-                    <li key={entry}>{entry}</li>
+                    <li key={String(entry)}>{String(entry)}</li>
                   ))}
                 </ul>
               ) : (

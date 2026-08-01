@@ -24,6 +24,17 @@ const TYPE_META: Record<
     team: "story",
     teamLabel: "Story",
   },
+  ART_DIRECTION: {
+    label: "Concept brief",
+    team: "art",
+    teamLabel: "Art",
+  },
+  ASSET_LIST: { label: "Asset list", team: "art", teamLabel: "Art" },
+  ASSET_PROMPTS: {
+    label: "Asset prompts",
+    team: "art",
+    teamLabel: "Art",
+  },
   PRODUCER_NOTES: {
     label: "Producer notes",
     team: "producer",
@@ -45,10 +56,16 @@ export type ParsedArtifact = {
   parseError: string | null;
 };
 
+export type PaletteSwatch = {
+  role: string;
+  hex: string;
+};
+
 export type ArtifactField = {
   key: string;
   label: string;
-  value: string | string[];
+  value: string | string[] | PaletteSwatch[];
+  kind?: "text" | "colors";
 };
 
 const TEAM_ORDER: ArtifactTeam[] = [
@@ -132,14 +149,87 @@ export function fieldsFromData(data: unknown): ArtifactField[] {
   }
 
   return Object.entries(data as Record<string, unknown>).map(([key, raw]) => {
+    if (key.toLowerCase() === "palette" && Array.isArray(raw)) {
+      const swatches = parsePaletteSwatches(raw);
+      if (swatches.length > 0) {
+        return {
+          key,
+          label: humanizeKey(key),
+          value: swatches,
+          kind: "colors" as const,
+        };
+      }
+    }
+
     let value: string | string[];
     if (Array.isArray(raw)) {
-      value = raw.map((entry) => String(entry));
+      value = raw.map((entry) => formatFieldEntry(entry));
     } else if (raw !== null && typeof raw === "object") {
-      value = JSON.stringify(raw, null, 2);
+      value = formatFieldEntry(raw);
     } else {
       value = raw == null ? "" : String(raw);
     }
-    return { key, label: humanizeKey(key), value };
+    return { key, label: humanizeKey(key), value, kind: "text" as const };
   });
+}
+
+const DEFAULT_PALETTE_ROLES = [
+  "primary",
+  "secondary",
+  "accent",
+  "background",
+  "ink",
+] as const;
+
+function parsePaletteSwatches(raw: unknown[]): PaletteSwatch[] {
+  const swatches: PaletteSwatch[] = [];
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const entry = raw[index];
+    if (typeof entry === "string" && isHexColor(entry)) {
+      swatches.push({
+        role: DEFAULT_PALETTE_ROLES[index] ?? `color-${index + 1}`,
+        hex: entry.trim(),
+      });
+      continue;
+    }
+    if (entry !== null && typeof entry === "object") {
+      const record = entry as Record<string, unknown>;
+      const hexValue = record.hex ?? record.color ?? record.value;
+      if (typeof hexValue === "string" && isHexColor(hexValue)) {
+        const role =
+          typeof record.role === "string" && record.role.trim()
+            ? record.role.trim()
+            : (DEFAULT_PALETTE_ROLES[index] ?? `color-${index + 1}`);
+        swatches.push({ role, hex: hexValue.trim() });
+      }
+    }
+  }
+
+  return swatches;
+}
+
+function isHexColor(value: string): boolean {
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value.trim());
+}
+
+function formatFieldEntry(entry: unknown): string {
+  if (entry === null || entry === undefined) return "";
+  if (typeof entry !== "object") return String(entry);
+  if (Array.isArray(entry)) {
+    return entry.map((item) => formatFieldEntry(item)).join(", ");
+  }
+  const record = entry as Record<string, unknown>;
+  if (typeof record.role === "string" && typeof record.prompt === "string") {
+    return `${record.role}: ${record.prompt}`;
+  }
+  if (typeof record.role === "string" && typeof record.fileRef === "string") {
+    return `${record.role} → ${record.fileRef}`;
+  }
+  if (typeof record.role === "string" && typeof record.file_ref === "string") {
+    return `${record.role} → ${record.file_ref}`;
+  }
+  return Object.entries(record)
+    .map(([key, value]) => `${humanizeKey(key)}: ${String(value)}`)
+    .join(" · ");
 }

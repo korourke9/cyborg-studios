@@ -136,7 +136,7 @@ There are two control layers, and they must not duplicate each other:
 
 - **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec. Early creative vision lives here (no separate Creative Director team).
 - **Story team** (`team.story.*`): NarrativeSpec, ExperienceMilestones (ordered player-experience milestones).
-- **Art team** (`team.art.*`): ArtDirection, AssetList, AssetPrompts; may create BINARY_ASSET artifacts (payload = JSON with file/blob reference).
+- **Art team** (`team.art.*`): ArtDirection (concept brief: hero/world/key scenes), AssetList, AssetPrompts; may create BINARY_ASSET artifacts later (payload = JSON with file/blob reference). MVP uses placeholder `fileRef`s — no generated images yet.
 - **Engineering team** (`team.engineering.*`): GameBundle.
 - **QA team** (`team.qa.*`): QaIssues.
 - **Producer team** (`team.producer.*`): CoherenceReview, ProducerNotes (ship / cut / coherence call across teams).
@@ -174,7 +174,7 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 1. **Foundation** *(done — rebuilt on Python/FastAPI + Next.js)*: repo, backend skeleton, DB/SQLAlchemy, frontend skeleton, Docker Compose.
 2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts.
 3. **Agent graph foundation** *(done)*: `LlmModel`, `LlmRouter`, `ModelCapability`, `AgentGraph[I, O]`; design contracts in application; **PydanticAI** default agent adapter; optional reflective/`LlmModel` and LangGraph adapters; deterministic fallback; transport-agnostic LLM config (cloud + local).
-4. **Teams and orchestration** *(in progress)*: Design + Story wired in Temporal; remaining peer teams (Art → Engineering → QA → Producer) + reflection adapters as needed.
+4. **Teams and orchestration** *(in progress)*: Design + Story + Art wired in Temporal; remaining peer teams (Engineering → QA → Producer).
 5. **Frontend and play** *(in progress)*: studio desk with sidebar + project card; game bundle serving; Phaser on `/projects/[id]/play`.
 6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E (prompt → desk → play), error handling, retry/timeout policy, operational docs.
 

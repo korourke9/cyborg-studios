@@ -9,6 +9,7 @@ from gamebuilder.orchestration.application.usecase.delete_project import DeleteP
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
 from gamebuilder.orchestration.application.usecase.get_project import GetProjectUseCase
 from gamebuilder.orchestration.application.usecase.list_projects import ListProjectsUseCase
+from gamebuilder.orchestration.application.usecase.run_art_step import RunArtStepUseCase
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.application.usecase.start_project_generation import (
@@ -30,6 +31,9 @@ from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import (
     create_temporal_client,
     create_worker,
 )
+from gamebuilder.team.art.application.art_team_agent_service import ArtTeamAgentService
+from gamebuilder.team.art.application.port.art_agent_graph import ArtAgentGraph
+from gamebuilder.team.art.infrastructure.config.factory import build_art_agent_graph
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.application.port.design_agent_graph import DesignAgentGraph
 from gamebuilder.team.design.infrastructure.config.factory import build_design_agent_graph
@@ -59,6 +63,7 @@ async def build_container(
     start_worker: bool = True,
     design_agent_graph: DesignAgentGraph | None = None,
     story_agent_graph: StoryAgentGraph | None = None,
+    art_agent_graph: ArtAgentGraph | None = None,
 ) -> AppContainer:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -80,15 +85,25 @@ async def build_container(
         )
     writers = WritersAgentService(story_agent_graph)
 
+    if art_agent_graph is None:
+        art_agent_graph = build_art_agent_graph(
+            mode=settings.resolve_art_agent_mode(),
+            settings=settings,
+        )
+    artists = ArtTeamAgentService(art_agent_graph)
+
     run_vision = RunVisionStepUseCase(uow_factory, designers)
     run_story = RunStoryStepUseCase(uow_factory, writers)
+    run_art = RunArtStepUseCase(uow_factory, artists)
     fail_project = FailProjectUseCase(uow_factory)
 
     client = temporal_client or await create_temporal_client(
         settings.temporal_target, settings.temporal_namespace
     )
     runner = TemporalGenerationWorkflowRunner(client, settings.temporal_task_queue)
-    activities = GameGenerationActivities(run_vision, run_story, fail_project)
+    activities = GameGenerationActivities(
+        run_vision, run_story, run_art, fail_project
+    )
 
     worker: Worker | None = None
     if start_worker:

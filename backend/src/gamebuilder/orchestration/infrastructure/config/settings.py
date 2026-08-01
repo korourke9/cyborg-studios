@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # auto: pydantic_ai when LLM is configured, otherwise deterministic
     design_agent_mode: str = "auto"
     story_agent_mode: str = "auto"
+    art_agent_mode: str = "auto"
 
     llm_model_design: str = "gpt-4o-mini"
     llm_model_writing: str = "gpt-4o-mini"
@@ -88,5 +89,16 @@ class Settings(BaseSettings):
             return mode
         raise ValueError(
             f"Invalid STORY_AGENT_MODE={self.story_agent_mode!r}; "
+            "expected auto, pydantic_ai, or deterministic"
+        )
+
+    def resolve_art_agent_mode(self) -> str:
+        mode = self.art_agent_mode.strip().lower()
+        if mode == "auto":
+            return "pydantic_ai" if self.llm_is_configured() else "deterministic"
+        if mode in {"pydantic_ai", "deterministic"}:
+            return mode
+        raise ValueError(
+            f"Invalid ART_AGENT_MODE={self.art_agent_mode!r}; "
             "expected auto, pydantic_ai, or deterministic"
         )
