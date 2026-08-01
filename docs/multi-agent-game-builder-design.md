@@ -100,7 +100,7 @@ Intent → story → look → **play**. Keep explanatory copy minimal — the la
 | Priority | Artifacts | Presentation |
 | -------- | --------- | ------------ |
 | **Brief (in project card)** | VisionDoc summary, DesignPillars | Always visible on the card when present |
-| **Stage deliverables** | MechanicsSpec, SystemsSpec, NarrativeSpec, QuestBeats, ArtDirection, AssetList, AssetPrompts, QaIssues, CoherenceReview, ProducerNotes | Shown only for the selected pipeline stage button |
+| **Stage deliverables** | MechanicsSpec, SystemsSpec, NarrativeSpec, ExperienceMilestones, ArtDirection, AssetList, AssetPrompts, QaIssues, CoherenceReview, ProducerNotes | Shown only for the selected pipeline stage button |
 | **Play (not a JSON card)** | GameBundle | Play control / play route only |
 | **Hidden** | REFLECTION_NOTE; raw GameBundle JSON | Not in the default desk UI |
 
@@ -135,7 +135,7 @@ There are two control layers, and they must not duplicate each other:
 **Teams and artifact ownership**
 
 - **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec. Early creative vision lives here (no separate Creative Director team).
-- **Story team** (`team.story.*`): NarrativeSpec, QuestBeats.
+- **Story team** (`team.story.*`): NarrativeSpec, ExperienceMilestones (ordered player-experience milestones).
 - **Art team** (`team.art.*`): ArtDirection, AssetList, AssetPrompts; may create BINARY_ASSET artifacts (payload = JSON with file/blob reference).
 - **Engineering team** (`team.engineering.*`): GameBundle.
 - **QA team** (`team.qa.*`): QaIssues.
@@ -144,7 +144,7 @@ There are two control layers, and they must not duplicate each other:
 **Core artifact model**
 
 - `Project`: id, prompt, status (PENDING | stage-specific `*_IN_PROGRESS` / `*_DONE` values such as VISION_IN_PROGRESS, DESIGN_DONE, PRODUCER_DONE | DONE | FAILED), createdAt, updatedAt.
-- `Artifact`: id, projectId, type (VISION_DOC | DESIGN_PILLARS | MECHANICS_SPEC | SYSTEMS_SPEC | NARRATIVE_SPEC | QUEST_BEATS | ART_DIRECTION | ASSET_LIST | ASSET_PROMPTS | GAME_BUNDLE | QA_ISSUES | COHERENCE_REVIEW | PRODUCER_NOTES | REFLECTION_NOTE | BINARY_ASSET), payload (JSON or JSON with file/blob reference for unstructured data), createdAt.
+- `Artifact`: id, projectId, type (VISION_DOC | DESIGN_PILLARS | MECHANICS_SPEC | SYSTEMS_SPEC | NARRATIVE_SPEC | EXPERIENCE_MILESTONES | ART_DIRECTION | ASSET_LIST | ASSET_PROMPTS | GAME_BUNDLE | QA_ISSUES | COHERENCE_REVIEW | PRODUCER_NOTES | REFLECTION_NOTE | BINARY_ASSET), payload (JSON or JSON with file/blob reference for unstructured data), createdAt.
 
 **Durable, resumable orchestration**
 
@@ -174,8 +174,8 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 1. **Foundation** *(done — rebuilt on Python/FastAPI + Next.js)*: repo, backend skeleton, DB/SQLAlchemy, frontend skeleton, Docker Compose.
 2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts.
 3. **Agent graph foundation** *(done)*: `LlmModel`, `LlmRouter`, `ModelCapability`, `AgentGraph[I, O]`; design contracts in application; **PydanticAI** default agent adapter; optional reflective/`LlmModel` and LangGraph adapters; deterministic fallback; transport-agnostic LLM config (cloud + local).
-4. **Teams and orchestration** *(next)*: implement each peer team's service/graph + reflection + validation; wire orchestration activities to call those teams in Temporal workflow order (including Producer).
-5. **Frontend and play** *(in progress)*: studio desk (`/projects/[id]`) with Brief-first artifacts + team Studio sections; visual retro-arcade direction; game bundle serving; Phaser on `/projects/[id]/play`; Play CTA when bundle ready. Edit/feedback comes after MVP inspection works.
+4. **Teams and orchestration** *(in progress)*: Design + Story wired in Temporal; remaining peer teams (Art → Engineering → QA → Producer) + reflection adapters as needed.
+5. **Frontend and play** *(in progress)*: studio desk with sidebar + project card; game bundle serving; Phaser on `/projects/[id]/play`.
 6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E (prompt → desk → play), error handling, retry/timeout policy, operational docs.
 
 ---

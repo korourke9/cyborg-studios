@@ -19,7 +19,11 @@ const TYPE_META: Record<
   },
   SYSTEMS_SPEC: { label: "Systems", team: "design", teamLabel: "Design" },
   NARRATIVE_SPEC: { label: "Narrative", team: "story", teamLabel: "Story" },
-  QUEST_BEATS: { label: "Quest beats", team: "story", teamLabel: "Story" },
+  EXPERIENCE_MILESTONES: {
+    label: "Experience milestones",
+    team: "story",
+    teamLabel: "Story",
+  },
   PRODUCER_NOTES: {
     label: "Producer notes",
     team: "producer",

@@ -44,7 +44,6 @@ class RunVisionStepUseCase:
             await self._artifact_repository.save(artifact)
 
         await self._project_repository.update_status(project_id, ProjectStatus.DESIGN_DONE)
-        await self._project_repository.update_status(project_id, ProjectStatus.DONE)
 
     def _vision_artifact(self, project_id: UUID, output: DesignTeamOutput) -> Artifact:
         return Artifact(

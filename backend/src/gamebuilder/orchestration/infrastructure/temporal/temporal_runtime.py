@@ -58,7 +58,11 @@ def create_worker(
         client,
         task_queue=task_queue,
         workflows=[GameGenerationWorkflow],
-        activities=[activities.run_vision_step, activities.fail_project],
+        activities=[
+            activities.run_vision_step,
+            activities.run_story_step,
+            activities.fail_project,
+        ],
         workflow_runner=SandboxedWorkflowRunner(
             restrictions=_WORKFLOW_SANDBOX_RESTRICTIONS,
         ),

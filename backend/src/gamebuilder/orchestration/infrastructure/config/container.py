@@ -8,6 +8,7 @@ from gamebuilder.orchestration.application.usecase.create_project import CreateP
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
 from gamebuilder.orchestration.application.usecase.get_project import GetProjectUseCase
 from gamebuilder.orchestration.application.usecase.list_projects import ListProjectsUseCase
+from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.application.usecase.start_project_generation import (
     StartProjectGenerationUseCase,
@@ -25,8 +26,8 @@ from gamebuilder.orchestration.infrastructure.persistence.database import (
 from gamebuilder.orchestration.infrastructure.persistence.project_repository import (
     SqlAlchemyProjectRepository,
 )
+from gamebuilder.orchestration.infrastructure.temporal.activities import GameGenerationActivities
 from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import (
-    GameGenerationActivities,
     TemporalGenerationWorkflowRunner,
     create_temporal_client,
     create_worker,
@@ -34,6 +35,9 @@ from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import (
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.application.port.design_agent_graph import DesignAgentGraph
 from gamebuilder.team.design.infrastructure.config.factory import build_design_agent_graph
+from gamebuilder.team.story.application.port.story_agent_graph import StoryAgentGraph
+from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
+from gamebuilder.team.story.infrastructure.config.factory import build_story_agent_graph
 
 
 @dataclass
@@ -55,6 +59,7 @@ async def build_container(
     temporal_client: Client | None = None,
     start_worker: bool = True,
     design_agent_graph: DesignAgentGraph | None = None,
+    story_agent_graph: StoryAgentGraph | None = None,
 ) -> AppContainer:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -71,16 +76,24 @@ async def build_container(
         )
     designers = DesignersAgentService(design_agent_graph)
 
+    if story_agent_graph is None:
+        story_agent_graph = build_story_agent_graph(
+            mode=settings.resolve_story_agent_mode(),
+            settings=settings,
+        )
+    writers = WritersAgentService(story_agent_graph)
+
     run_vision = RunVisionStepUseCase(
         project_repository, artifact_repository, designers
     )
+    run_story = RunStoryStepUseCase(project_repository, artifact_repository, writers)
     fail_project = FailProjectUseCase(project_repository)
 
     client = temporal_client or await create_temporal_client(
         settings.temporal_target, settings.temporal_namespace
     )
     runner = TemporalGenerationWorkflowRunner(client, settings.temporal_task_queue)
-    activities = GameGenerationActivities(run_vision, fail_project)
+    activities = GameGenerationActivities(run_vision, run_story, fail_project)
 
     worker: Worker | None = None
     if start_worker:

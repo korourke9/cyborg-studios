@@ -12,6 +12,7 @@ from temporalio.testing import WorkflowEnvironment
 
 from gamebuilder.main import create_app
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
+from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.infrastructure.config.container import (
     AppContainer,
@@ -30,6 +31,10 @@ from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import c
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.infrastructure.agent.deterministic_design_agent_graph import (
     DeterministicDesignAgentGraph,
+)
+from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
+from gamebuilder.team.story.infrastructure.agent.deterministic_story_agent_graph import (
+    DeterministicStoryAgentGraph,
 )
 
 
@@ -62,6 +67,11 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                         project_repository,
                         artifact_repository,
                         DesignersAgentService(DeterministicDesignAgentGraph()),
+                    ),
+                    RunStoryStepUseCase(
+                        project_repository,
+                        artifact_repository,
+                        WritersAgentService(DeterministicStoryAgentGraph()),
                     ),
                     FailProjectUseCase(project_repository),
                 )
@@ -124,6 +134,8 @@ async def test_create_then_poll_project_until_done(client: AsyncClient) -> None:
         "DESIGN_PILLARS",
         "MECHANICS_SPEC",
         "SYSTEMS_SPEC",
+        "NARRATIVE_SPEC",
+        "EXPERIENCE_MILESTONES",
     }
 
 
