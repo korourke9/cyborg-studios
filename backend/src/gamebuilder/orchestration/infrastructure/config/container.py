@@ -16,6 +16,7 @@ from gamebuilder.orchestration.application.usecase.run_art_step import RunArtSte
 from gamebuilder.orchestration.application.usecase.run_engineering_step import (
     RunEngineeringStepUseCase,
 )
+from gamebuilder.orchestration.application.usecase.run_qa_step import RunQaStepUseCase
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.application.usecase.start_project_generation import (
@@ -52,6 +53,9 @@ from gamebuilder.team.engineering.application.port.engineering_agent_graph impor
 from gamebuilder.team.engineering.infrastructure.config.factory import (
     build_engineering_agent_graph,
 )
+from gamebuilder.team.qa.application.port.qa_agent_graph import QaAgentGraph
+from gamebuilder.team.qa.application.qa_agent_service import QaAgentService
+from gamebuilder.team.qa.infrastructure.config.factory import build_qa_agent_graph
 from gamebuilder.team.story.application.port.story_agent_graph import StoryAgentGraph
 from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
 from gamebuilder.team.story.infrastructure.config.factory import build_story_agent_graph
@@ -81,6 +85,7 @@ async def build_container(
     story_agent_graph: StoryAgentGraph | None = None,
     art_agent_graph: ArtAgentGraph | None = None,
     engineering_agent_graph: EngineeringAgentGraph | None = None,
+    qa_agent_graph: QaAgentGraph | None = None,
 ) -> AppContainer:
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
@@ -116,10 +121,18 @@ async def build_container(
         )
     engineers = EngineersAgentService(engineering_agent_graph)
 
+    if qa_agent_graph is None:
+        qa_agent_graph = build_qa_agent_graph(
+            mode=settings.resolve_qa_agent_mode(),
+            settings=settings,
+        )
+    qa = QaAgentService(qa_agent_graph)
+
     run_vision = RunVisionStepUseCase(uow_factory, designers)
     run_story = RunStoryStepUseCase(uow_factory, writers)
     run_art = RunArtStepUseCase(uow_factory, artists)
     run_engineering = RunEngineeringStepUseCase(uow_factory, engineers)
+    run_qa = RunQaStepUseCase(uow_factory, qa)
     fail_project = FailProjectUseCase(uow_factory)
 
     client = temporal_client or await create_temporal_client(
@@ -127,7 +140,7 @@ async def build_container(
     )
     runner = TemporalGenerationWorkflowRunner(client, settings.temporal_task_queue)
     activities = GameGenerationActivities(
-        run_vision, run_story, run_art, run_engineering, fail_project
+        run_vision, run_story, run_art, run_engineering, run_qa, fail_project
     )
 
     worker: Worker | None = None

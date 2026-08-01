@@ -52,8 +52,6 @@ class RunEngineeringStepUseCase:
             await uow.projects.update_status(
                 project_id, ProjectStatus.ENGINEERING_DONE
             )
-            # Pipeline ends here until QA / Producer are wired.
-            await uow.projects.update_status(project_id, ProjectStatus.DONE)
 
     def _build_input(
         self, prompt: str, artifacts: list[Artifact]

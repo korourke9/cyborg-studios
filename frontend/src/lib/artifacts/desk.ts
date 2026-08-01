@@ -89,3 +89,45 @@ export function briefFromArtifacts(artifacts: ArtifactDetails[]): {
 export function hasGameBundle(artifacts: ArtifactDetails[]): boolean {
   return artifacts.some((artifact) => artifact.type === "GAME_BUNDLE");
 }
+
+export type GameBundleSummary = {
+  title: string;
+  summary: string;
+  controls: string;
+  implemented: string[];
+};
+
+export function gameBundleSummaryFromArtifacts(
+  artifacts: ArtifactDetails[],
+): GameBundleSummary | null {
+  for (let i = artifacts.length - 1; i >= 0; i -= 1) {
+    const artifact = artifacts[i];
+    if (artifact.type !== "GAME_BUNDLE") continue;
+    const parsed = parseArtifact(artifact);
+    if (parsed.parseError || typeof parsed.data !== "object" || parsed.data === null) {
+      return {
+        title: "Playable build",
+        summary: "Engineering shipped a GameBundle for this project.",
+        controls: "",
+        implemented: [],
+      };
+    }
+    const data = parsed.data as Record<string, unknown>;
+    const implemented = Array.isArray(data.implemented)
+      ? data.implemented.map((entry) => String(entry))
+      : [];
+    return {
+      title:
+        typeof data.title === "string" && data.title.trim()
+          ? data.title
+          : "Playable build",
+      summary:
+        typeof data.summary === "string" && data.summary.trim()
+          ? data.summary
+          : "Engineering compiled a playable Phaser level for this project.",
+      controls: typeof data.controls === "string" ? data.controls : "",
+      implemented,
+    };
+  }
+  return null;
+}

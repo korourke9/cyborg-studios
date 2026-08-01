@@ -59,8 +59,10 @@ services:
       LLM_JSON_MODE: ${LLM_JSON_MODE:-true}
       DESIGN_AGENT_MODE: ${DESIGN_AGENT_MODE:-auto}
       ENGINEERING_AGENT_MODE: ${ENGINEERING_AGENT_MODE:-auto}
+      QA_AGENT_MODE: ${QA_AGENT_MODE:-auto}
       LLM_MODEL_DESIGN: ${LLM_MODEL_DESIGN:-gpt-4o-mini}
       LLM_MODEL_ENGINEERING: ${LLM_MODEL_ENGINEERING:-gpt-4o-mini}
+      LLM_MODEL_QA: ${LLM_MODEL_QA:-gpt-4o-mini}
       LLM_MODEL_PRODUCER: ${LLM_MODEL_PRODUCER:-gpt-4o-mini}
     ports:
       - "8080:8080"

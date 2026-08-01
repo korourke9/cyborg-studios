@@ -16,6 +16,7 @@ from gamebuilder.orchestration.application.usecase.run_art_step import RunArtSte
 from gamebuilder.orchestration.application.usecase.run_engineering_step import (
     RunEngineeringStepUseCase,
 )
+from gamebuilder.orchestration.application.usecase.run_qa_step import RunQaStepUseCase
 from gamebuilder.orchestration.application.usecase.run_story_step import RunStoryStepUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.infrastructure.config.container import (
@@ -42,6 +43,10 @@ from gamebuilder.team.engineering.application.engineers_agent_service import (
 )
 from gamebuilder.team.engineering.infrastructure.agent.deterministic_engineering_agent_graph import (
     DeterministicEngineeringAgentGraph,
+)
+from gamebuilder.team.qa.application.qa_agent_service import QaAgentService
+from gamebuilder.team.qa.infrastructure.agent.deterministic_qa_agent_graph import (
+    DeterministicQaAgentGraph,
 )
 from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
 from gamebuilder.team.story.infrastructure.agent.deterministic_story_agent_graph import (
@@ -88,6 +93,10 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                     RunEngineeringStepUseCase(
                         uow_factory,
                         EngineersAgentService(DeterministicEngineeringAgentGraph()),
+                    ),
+                    RunQaStepUseCase(
+                        uow_factory,
+                        QaAgentService(DeterministicQaAgentGraph()),
                     ),
                     FailProjectUseCase(uow_factory),
                 )
@@ -156,6 +165,7 @@ async def test_create_then_poll_project_until_done(client: AsyncClient) -> None:
         "ASSET_LIST",
         "ASSET_PROMPTS",
         "GAME_BUNDLE",
+        "QA_ISSUES",
     }
 
     script = await client.get(f"/api/projects/{project_id}/bundle/entry.js")

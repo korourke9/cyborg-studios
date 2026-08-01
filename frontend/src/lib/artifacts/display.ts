@@ -35,6 +35,12 @@ const TYPE_META: Record<
     team: "art",
     teamLabel: "Art",
   },
+  QA_ISSUES: { label: "QA issues", team: "qa", teamLabel: "QA" },
+  COHERENCE_REVIEW: {
+    label: "Coherence review",
+    team: "producer",
+    teamLabel: "Producer",
+  },
   PRODUCER_NOTES: {
     label: "Producer notes",
     team: "producer",

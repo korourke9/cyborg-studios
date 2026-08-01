@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArtifactStack } from "@/components/artifacts/ArtifactStack";
+import { EngineeringBuildCard } from "@/components/projects/EngineeringBuildCard";
 import { gameLabel, type ProjectDetails } from "@/lib/api/client";
 import {
   PIPELINE_STAGES,
   artifactsForStage,
   briefFromArtifacts,
+  gameBundleSummaryFromArtifacts,
   hasGameBundle,
   stageForStatus,
   type PipelineStage,
@@ -33,6 +35,10 @@ export function ProjectStatusPanel({ project }: Props) {
 
   const activeStage = stageForStatus(project.status);
   const stageArtifacts = artifactsForStage(project.artifacts, selectedStage);
+  const engineeringBundle =
+    selectedStage === "Engineering"
+      ? gameBundleSummaryFromArtifacts(project.artifacts)
+      : null;
 
   return (
     <section className="border-4 border-line bg-ink-panel p-5 shadow-[6px_6px_0_0_#9b7ed9]">
@@ -126,7 +132,21 @@ export function ProjectStatusPanel({ project }: Props) {
         <h2 className="mb-3 font-[family-name:var(--font-pixel)] text-[8px] text-muted">
           {selectedStage}
         </h2>
-        <ArtifactStack items={stageArtifacts} emptyLabel="No deliverables yet." />
+        {engineeringBundle ? (
+          <EngineeringBuildCard
+            projectId={project.id}
+            bundle={engineeringBundle}
+          />
+        ) : (
+          <ArtifactStack
+            items={stageArtifacts}
+            emptyLabel={
+              selectedStage === "Engineering"
+                ? "No playable build yet."
+                : "No deliverables yet."
+            }
+          />
+        )}
       </div>
     </section>
   );
