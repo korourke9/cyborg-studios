@@ -2,11 +2,11 @@ import json
 from time import time
 from uuid import UUID, uuid4
 
+from gamebuilder.orchestration.application.errors import NotFoundError
+from gamebuilder.orchestration.application.port.unit_of_work import UnitOfWorkFactory
 from gamebuilder.orchestration.domain.model.artifact import Artifact
 from gamebuilder.orchestration.domain.model.artifact_type import ArtifactType
 from gamebuilder.orchestration.domain.model.project_status import ProjectStatus
-from gamebuilder.orchestration.domain.repository.artifact_repository import ArtifactRepository
-from gamebuilder.orchestration.domain.repository.project_repository import ProjectRepository
 from gamebuilder.team.story.application.writers_agent_service import WritersAgentService
 from gamebuilder.team.story.domain.model import StoryTeamInput, StoryTeamOutput
 
@@ -14,32 +14,38 @@ from gamebuilder.team.story.domain.model import StoryTeamInput, StoryTeamOutput
 class RunStoryStepUseCase:
     def __init__(
         self,
-        project_repository: ProjectRepository,
-        artifact_repository: ArtifactRepository,
+        uow_factory: UnitOfWorkFactory,
         writers_agent_service: WritersAgentService,
     ) -> None:
-        self._project_repository = project_repository
-        self._artifact_repository = artifact_repository
+        self._uow_factory = uow_factory
         self._writers_agent_service = writers_agent_service
 
     async def execute(self, project_id: UUID) -> None:
-        project = await self._project_repository.find_by_id(project_id)
-        if project is None:
-            return
+        async with self._uow_factory() as uow:
+            project = await uow.projects.find_by_id(project_id)
+            if project is None:
+                raise NotFoundError(
+                    "Story could not start because that game no longer exists."
+                )
+            artifacts = await uow.artifacts.find_by_project_id(project_id)
+            story_input = self._build_input(project.prompt, artifacts)
+            await uow.projects.update_status(
+                project_id, ProjectStatus.STORY_IN_PROGRESS
+            )
 
-        await self._project_repository.update_status(
-            project_id, ProjectStatus.STORY_IN_PROGRESS
-        )
-
-        artifacts = await self._artifact_repository.find_by_project_id(project_id)
-        story_input = self._build_input(project.prompt, artifacts)
         story_output = self._writers_agent_service.generate_story(story_input)
 
-        for artifact in self._story_artifacts(project_id, story_output):
-            await self._artifact_repository.save(artifact)
-
-        await self._project_repository.update_status(project_id, ProjectStatus.STORY_DONE)
-        await self._project_repository.update_status(project_id, ProjectStatus.DONE)
+        async with self._uow_factory() as uow:
+            project = await uow.projects.find_by_id(project_id)
+            if project is None:
+                raise NotFoundError(
+                    "Story finished but the game was deleted before results "
+                    "could be saved."
+                )
+            for artifact in self._story_artifacts(project_id, story_output):
+                await uow.artifacts.save(artifact)
+            await uow.projects.update_status(project_id, ProjectStatus.STORY_DONE)
+            await uow.projects.update_status(project_id, ProjectStatus.DONE)
 
     def _build_input(self, prompt: str, artifacts: list[Artifact]) -> StoryTeamInput:
         vision_summary = ""

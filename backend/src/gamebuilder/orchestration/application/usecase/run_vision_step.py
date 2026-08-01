@@ -1,11 +1,11 @@
 from time import time
 from uuid import UUID, uuid4
 
+from gamebuilder.orchestration.application.errors import NotFoundError
+from gamebuilder.orchestration.application.port.unit_of_work import UnitOfWorkFactory
 from gamebuilder.orchestration.domain.model.artifact import Artifact
 from gamebuilder.orchestration.domain.model.artifact_type import ArtifactType
 from gamebuilder.orchestration.domain.model.project_status import ProjectStatus
-from gamebuilder.orchestration.domain.repository.artifact_repository import ArtifactRepository
-from gamebuilder.orchestration.domain.repository.project_repository import ProjectRepository
 from gamebuilder.team.design.application.designers_agent_service import DesignersAgentService
 from gamebuilder.team.design.domain.model import DesignTeamOutput
 
@@ -13,37 +13,41 @@ from gamebuilder.team.design.domain.model import DesignTeamOutput
 class RunVisionStepUseCase:
     def __init__(
         self,
-        project_repository: ProjectRepository,
-        artifact_repository: ArtifactRepository,
+        uow_factory: UnitOfWorkFactory,
         designers_agent_service: DesignersAgentService,
     ) -> None:
-        self._project_repository = project_repository
-        self._artifact_repository = artifact_repository
+        self._uow_factory = uow_factory
         self._designers_agent_service = designers_agent_service
 
     async def execute(self, project_id: UUID) -> None:
-        project = await self._project_repository.find_by_id(project_id)
-        if project is None:
-            return
+        async with self._uow_factory() as uow:
+            project = await uow.projects.find_by_id(project_id)
+            if project is None:
+                raise NotFoundError(
+                    "Design could not start because that game no longer exists."
+                )
+            prompt = project.prompt
+            await uow.projects.update_status(
+                project_id, ProjectStatus.VISION_IN_PROGRESS
+            )
 
-        await self._project_repository.update_status(
-            project_id, ProjectStatus.VISION_IN_PROGRESS
-        )
+        design_output = self._designers_agent_service.generate_initial_design(prompt)
 
-        design_output = self._designers_agent_service.generate_initial_design(project.prompt)
-        await self._artifact_repository.save(
-            self._vision_artifact(project_id, design_output)
-        )
-
-        await self._project_repository.update_status(project_id, ProjectStatus.VISION_DONE)
-        await self._project_repository.update_status(
-            project_id, ProjectStatus.DESIGN_IN_PROGRESS
-        )
-
-        for artifact in self._design_artifacts(project_id, design_output):
-            await self._artifact_repository.save(artifact)
-
-        await self._project_repository.update_status(project_id, ProjectStatus.DESIGN_DONE)
+        async with self._uow_factory() as uow:
+            project = await uow.projects.find_by_id(project_id)
+            if project is None:
+                raise NotFoundError(
+                    "Design finished but the game was deleted before results "
+                    "could be saved."
+                )
+            await uow.artifacts.save(self._vision_artifact(project_id, design_output))
+            await uow.projects.update_status(project_id, ProjectStatus.VISION_DONE)
+            await uow.projects.update_status(
+                project_id, ProjectStatus.DESIGN_IN_PROGRESS
+            )
+            for artifact in self._design_artifacts(project_id, design_output):
+                await uow.artifacts.save(artifact)
+            await uow.projects.update_status(project_id, ProjectStatus.DESIGN_DONE)
 
     def _vision_artifact(self, project_id: UUID, output: DesignTeamOutput) -> Artifact:
         return Artifact(

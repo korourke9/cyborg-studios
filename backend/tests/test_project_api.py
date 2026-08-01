@@ -20,11 +20,8 @@ from gamebuilder.orchestration.infrastructure.config.container import (
     init_database,
 )
 from gamebuilder.orchestration.infrastructure.config.settings import Settings
-from gamebuilder.orchestration.infrastructure.persistence.artifact_repository import (
-    SqlAlchemyArtifactRepository,
-)
-from gamebuilder.orchestration.infrastructure.persistence.project_repository import (
-    SqlAlchemyProjectRepository,
+from gamebuilder.orchestration.infrastructure.persistence.unit_of_work import (
+    create_unit_of_work_factory,
 )
 from gamebuilder.orchestration.infrastructure.temporal.activities import GameGenerationActivities
 from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import create_worker
@@ -60,20 +57,17 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                 )
                 await init_database(container.engine)
 
-                project_repository = SqlAlchemyProjectRepository(container.session_factory)
-                artifact_repository = SqlAlchemyArtifactRepository(container.session_factory)
+                uow_factory = create_unit_of_work_factory(container.session_factory)
                 activities = GameGenerationActivities(
                     RunVisionStepUseCase(
-                        project_repository,
-                        artifact_repository,
+                        uow_factory,
                         DesignersAgentService(DeterministicDesignAgentGraph()),
                     ),
                     RunStoryStepUseCase(
-                        project_repository,
-                        artifact_repository,
+                        uow_factory,
                         WritersAgentService(DeterministicStoryAgentGraph()),
                     ),
-                    FailProjectUseCase(project_repository),
+                    FailProjectUseCase(uow_factory),
                 )
                 worker = create_worker(
                     env.client,
@@ -142,6 +136,8 @@ async def test_create_then_poll_project_until_done(client: AsyncClient) -> None:
 async def test_get_unknown_project_returns_not_found(client: AsyncClient) -> None:
     response = await client.get(f"/api/projects/{uuid4()}")
     assert response.status_code == 404
+    assert "message" in response.json()
+    assert response.json()["message"]
 
 
 async def test_list_projects_sorted_by_updated_at(client: AsyncClient) -> None:
@@ -163,6 +159,31 @@ async def test_list_projects_sorted_by_updated_at(client: AsyncClient) -> None:
     assert ids.index(second_id) < ids.index(first_id)
     assert "prompt" in projects[0]
     assert "updatedAt" in projects[0]
+
+
+async def test_delete_project_removes_project_and_artifacts(client: AsyncClient) -> None:
+    create_response = await client.post(
+        "/api/projects",
+        json={"prompt": "Temporary delete me"},
+    )
+    assert create_response.status_code == 202
+    project_id = create_response.json()["projectId"]
+    await _wait_for_project_done(client, project_id)
+
+    delete_response = await client.delete(f"/api/projects/{project_id}")
+    assert delete_response.status_code == 204
+
+    get_response = await client.get(f"/api/projects/{project_id}")
+    assert get_response.status_code == 404
+
+    listed = await client.get("/api/projects")
+    assert project_id not in [project["id"] for project in listed.json()]
+
+
+async def test_delete_unknown_project_returns_not_found(client: AsyncClient) -> None:
+    response = await client.delete(f"/api/projects/{uuid4()}")
+    assert response.status_code == 404
+    assert response.json()["message"]
 
 
 async def _wait_for_project_done(client: AsyncClient, project_id: str) -> dict:

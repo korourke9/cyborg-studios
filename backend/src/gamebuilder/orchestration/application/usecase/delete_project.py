@@ -2,10 +2,9 @@ from uuid import UUID
 
 from gamebuilder.orchestration.application.errors import NotFoundError
 from gamebuilder.orchestration.application.port.unit_of_work import UnitOfWorkFactory
-from gamebuilder.orchestration.domain.model.project_status import ProjectStatus
 
 
-class FailProjectUseCase:
+class DeleteProjectUseCase:
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
 
@@ -14,6 +13,7 @@ class FailProjectUseCase:
             project = await uow.projects.find_by_id(project_id)
             if project is None:
                 raise NotFoundError(
-                    "Could not mark the game as failed because it no longer exists."
+                    "That game could not be found. It may have already been deleted."
                 )
-            await uow.projects.update_status(project_id, ProjectStatus.FAILED)
+            await uow.artifacts.delete_by_project_id(project_id)
+            await uow.projects.delete(project_id)

@@ -31,10 +31,30 @@ export type CreateProjectResponse = {
   status: string;
 };
 
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export function gameLabel(prompt: string, maxLength = 36): string {
   const cleaned = prompt.trim().replace(/\s+/g, " ");
   if (cleaned.length <= maxLength) return cleaned;
   return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+async function readApiError(response: Response, fallback: string): Promise<ApiError> {
+  try {
+    const body = (await response.json()) as { message?: string; detail?: string };
+    const message = body.message?.trim() || body.detail?.trim() || fallback;
+    return new ApiError(message, response.status);
+  } catch {
+    return new ApiError(fallback, response.status);
+  }
 }
 
 export async function createProject(
@@ -46,7 +66,10 @@ export async function createProject(
     body: JSON.stringify({ prompt }),
   });
   if (!response.ok) {
-    throw new Error(`Create project failed (${response.status})`);
+    throw await readApiError(
+      response,
+      `Create project failed (${response.status})`,
+    );
   }
   return response.json() as Promise<CreateProjectResponse>;
 }
@@ -54,7 +77,10 @@ export async function createProject(
 export async function listProjects(): Promise<ProjectSummary[]> {
   const response = await fetch(`${API_BASE_URL}/api/projects`);
   if (!response.ok) {
-    throw new Error(`List projects failed (${response.status})`);
+    throw await readApiError(
+      response,
+      `List projects failed (${response.status})`,
+    );
   }
   return response.json() as Promise<ProjectSummary[]>;
 }
@@ -62,7 +88,22 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 export async function getProject(projectId: string): Promise<ProjectDetails> {
   const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`);
   if (!response.ok) {
-    throw new Error(`Get project failed (${response.status})`);
+    throw await readApiError(
+      response,
+      `Get project failed (${response.status})`,
+    );
   }
   return response.json() as Promise<ProjectDetails>;
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw await readApiError(
+      response,
+      `Delete project failed (${response.status})`,
+    );
+  }
 }

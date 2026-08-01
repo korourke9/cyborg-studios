@@ -5,6 +5,7 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from gamebuilder.orchestration.application.usecase.create_project import CreateProjectUseCase
+from gamebuilder.orchestration.application.usecase.delete_project import DeleteProjectUseCase
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
 from gamebuilder.orchestration.application.usecase.get_project import GetProjectUseCase
 from gamebuilder.orchestration.application.usecase.list_projects import ListProjectsUseCase
@@ -15,16 +16,13 @@ from gamebuilder.orchestration.application.usecase.start_project_generation impo
 )
 from gamebuilder.orchestration.infrastructure.config.settings import Settings
 from gamebuilder.orchestration.infrastructure.llm.factory import create_llm_router
-from gamebuilder.orchestration.infrastructure.persistence.artifact_repository import (
-    SqlAlchemyArtifactRepository,
-)
 from gamebuilder.orchestration.infrastructure.persistence.database import (
     Base,
     create_engine,
     create_session_factory,
 )
-from gamebuilder.orchestration.infrastructure.persistence.project_repository import (
-    SqlAlchemyProjectRepository,
+from gamebuilder.orchestration.infrastructure.persistence.unit_of_work import (
+    create_unit_of_work_factory,
 )
 from gamebuilder.orchestration.infrastructure.temporal.activities import GameGenerationActivities
 from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import (
@@ -48,6 +46,7 @@ class AppContainer:
     create_project: CreateProjectUseCase
     list_projects: ListProjectsUseCase
     get_project: GetProjectUseCase
+    delete_project: DeleteProjectUseCase
     start_project_generation: StartProjectGenerationUseCase
     temporal_client: Client | None = None
     worker: Worker | None = None
@@ -64,9 +63,7 @@ async def build_container(
     settings = settings or Settings()
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
-
-    project_repository = SqlAlchemyProjectRepository(session_factory)
-    artifact_repository = SqlAlchemyArtifactRepository(session_factory)
+    uow_factory = create_unit_of_work_factory(session_factory)
 
     if design_agent_graph is None:
         design_agent_graph = build_design_agent_graph(
@@ -83,11 +80,9 @@ async def build_container(
         )
     writers = WritersAgentService(story_agent_graph)
 
-    run_vision = RunVisionStepUseCase(
-        project_repository, artifact_repository, designers
-    )
-    run_story = RunStoryStepUseCase(project_repository, artifact_repository, writers)
-    fail_project = FailProjectUseCase(project_repository)
+    run_vision = RunVisionStepUseCase(uow_factory, designers)
+    run_story = RunStoryStepUseCase(uow_factory, writers)
+    fail_project = FailProjectUseCase(uow_factory)
 
     client = temporal_client or await create_temporal_client(
         settings.temporal_target, settings.temporal_namespace
@@ -103,9 +98,10 @@ async def build_container(
         settings=settings,
         engine=engine,
         session_factory=session_factory,
-        create_project=CreateProjectUseCase(project_repository),
-        list_projects=ListProjectsUseCase(project_repository),
-        get_project=GetProjectUseCase(project_repository, artifact_repository),
+        create_project=CreateProjectUseCase(uow_factory),
+        list_projects=ListProjectsUseCase(uow_factory),
+        get_project=GetProjectUseCase(uow_factory),
+        delete_project=DeleteProjectUseCase(uow_factory),
         start_project_generation=StartProjectGenerationUseCase(runner),
         temporal_client=client,
         worker=worker,

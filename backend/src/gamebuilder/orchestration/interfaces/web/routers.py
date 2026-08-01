@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Request, status
+from fastapi.responses import PlainTextResponse, Response
 
 from gamebuilder.orchestration.application.usecase.get_project import ProjectDetails
 from gamebuilder.orchestration.domain.model.project import Project
@@ -78,9 +78,17 @@ async def list_projects(request: Request) -> list[ProjectSummaryResponse]:
 async def get_project(project_id: UUID, request: Request) -> ProjectResponse:
     container = request.app.state.container
     details = await container.get_project.execute(project_id)
-    if details is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return _to_project_response(details)
+
+
+@router.delete(
+    "/api/projects/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_project(project_id: UUID, request: Request) -> Response:
+    container = request.app.state.container
+    await container.delete_project.execute(project_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/", response_class=PlainTextResponse)

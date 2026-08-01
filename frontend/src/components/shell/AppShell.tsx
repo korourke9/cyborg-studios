@@ -3,27 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import {
-  gameLabel,
-  listProjects,
-  type ProjectSummary,
-} from "@/lib/api/client";
+import { ErrorBannerProvider, useErrorBanner } from "@/components/shell/ErrorBanner";
+import { GameNavItem } from "@/components/shell/GameNavItem";
+import { listProjects, type ProjectSummary } from "@/lib/api/client";
 
 type Props = {
   children: React.ReactNode;
 };
 
-export function AppShell({ children }: Props) {
+function AppShellInner({ children }: Props) {
   const pathname = usePathname();
+  const { reportError } = useErrorBanner();
   const [games, setGames] = useState<ProjectSummary[]>([]);
 
   const refresh = useCallback(async () => {
     try {
       setGames(await listProjects());
-    } catch {
+    } catch (error) {
       setGames([]);
+      reportError(
+        error instanceof Error ? error.message : "Could not load games.",
+      );
     }
-  }, []);
+  }, [reportError]);
 
   useEffect(() => {
     void refresh();
@@ -61,27 +63,34 @@ export function AppShell({ children }: Props) {
           ) : (
             games.map((game) => {
               const href = `/projects/${game.id}`;
-              const active = pathname === href || pathname.startsWith(`${href}/`);
+              const active =
+                pathname === href || pathname.startsWith(`${href}/`);
               return (
-                <Link
+                <GameNavItem
                   key={game.id}
-                  href={href}
-                  className={`rounded-sm px-2 py-1.5 text-sm leading-snug ${
-                    active
-                      ? "bg-ink-raised text-foam"
-                      : "text-muted hover:bg-ink hover:text-foam"
-                  }`}
-                  title={game.prompt}
-                >
-                  {gameLabel(game.prompt)}
-                </Link>
+                  game={game}
+                  active={active}
+                  onDeleted={(id) => {
+                    setGames((current) =>
+                      current.filter((entry) => entry.id !== id),
+                    );
+                  }}
+                />
               );
             })
           )}
         </nav>
       </aside>
 
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
+  );
+}
+
+export function AppShell({ children }: Props) {
+  return (
+    <ErrorBannerProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </ErrorBannerProvider>
   );
 }

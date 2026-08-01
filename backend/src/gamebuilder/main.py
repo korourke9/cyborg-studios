@@ -11,6 +11,9 @@ from gamebuilder.orchestration.infrastructure.config.container import (
     init_database,
 )
 from gamebuilder.orchestration.infrastructure.config.settings import Settings
+from gamebuilder.orchestration.interfaces.web.exception_handlers import (
+    register_exception_handlers,
+)
 from gamebuilder.orchestration.interfaces.web.routers import router
 
 
@@ -47,6 +50,7 @@ def create_app(
     settings = settings or Settings()
     lifespan = (lifespan_factory or _default_lifespan)(settings)
     app = FastAPI(title="Cyborg Studios Game Builder", lifespan=lifespan)
+    register_exception_handlers(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

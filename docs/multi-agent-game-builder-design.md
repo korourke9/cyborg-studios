@@ -150,7 +150,7 @@ There are two control layers, and they must not duplicate each other:
 
 - Temporal is the durable harness. The workflow owns step ordering and retry policy, but workflow code must remain deterministic.
 - Temporal activities perform non-deterministic work: repository calls, calls into peer team services/graphs, artifact persistence, and status updates.
-- Each activity reads project and upstream artifacts, builds team-specific context, calls the appropriate peer team service/graph, validates output, then persists artifacts and updates `ProjectStatus` in a transaction.
+- Each activity reads project and upstream artifacts, builds team-specific context, calls the appropriate peer team service/graph, validates output, then persists artifacts and updates `ProjectStatus` **in a single Unit of Work transaction**.
 - PostgreSQL remains the user-facing source of truth for project status and artifacts; Temporal is the execution history and recovery system.
 - On crash, Temporal resumes workflow execution. Failures set `FAILED` and may create a `REFLECTION_NOTE`.
 

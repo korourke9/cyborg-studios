@@ -4,12 +4,14 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ProjectStatusPanel } from "@/components/projects/ProjectStatusPanel";
 import { getProject, type ProjectDetails } from "@/lib/api/client";
+import { useErrorBanner } from "@/components/shell/ErrorBanner";
 
 const TERMINAL_STATUSES = new Set(["DONE", "FAILED"]);
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
+  const { reportError } = useErrorBanner();
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -30,7 +32,10 @@ export default function ProjectPage() {
         }
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load project");
+        const message =
+          err instanceof Error ? err.message : "Failed to load project";
+        setError(message);
+        reportError(message);
       }
     }
 
@@ -42,7 +47,7 @@ export default function ProjectPage() {
         clearTimeout(pollTimer.current);
       }
     };
-  }, [projectId]);
+  }, [projectId, reportError]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-8 py-10">

@@ -3,9 +3,11 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createProject } from "@/lib/api/client";
+import { useErrorBanner } from "@/components/shell/ErrorBanner";
 
 export default function HomePage() {
   const router = useRouter();
+  const { reportError } = useErrorBanner();
   const [prompt, setPrompt] = useState(
     "A tiny robot adventure in a glowing cave",
   );
@@ -23,9 +25,10 @@ export default function HomePage() {
       const created = await createProject(prompt.trim());
       router.push(`/projects/${created.projectId}`);
     } catch (error) {
-      setSubmitError(
-        error instanceof Error ? error.message : "Failed to create project",
-      );
+      const message =
+        error instanceof Error ? error.message : "Failed to create project";
+      setSubmitError(message);
+      reportError(message);
       setSubmitting(false);
     }
   }
