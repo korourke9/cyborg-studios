@@ -132,6 +132,27 @@ async def test_get_unknown_project_returns_not_found(client: AsyncClient) -> Non
     assert response.status_code == 404
 
 
+async def test_list_projects_sorted_by_updated_at(client: AsyncClient) -> None:
+    first = await client.post("/api/projects", json={"prompt": "Older cave game"})
+    assert first.status_code == 202
+    first_id = first.json()["projectId"]
+    await _wait_for_project_done(client, first_id)
+
+    second = await client.post("/api/projects", json={"prompt": "Newer sky game"})
+    assert second.status_code == 202
+    second_id = second.json()["projectId"]
+    await _wait_for_project_done(client, second_id)
+
+    response = await client.get("/api/projects")
+    assert response.status_code == 200
+    projects = response.json()
+    assert len(projects) >= 2
+    ids = [project["id"] for project in projects]
+    assert ids.index(second_id) < ids.index(first_id)
+    assert "prompt" in projects[0]
+    assert "updatedAt" in projects[0]
+
+
 async def _wait_for_project_done(client: AsyncClient, project_id: str) -> dict:
     for _ in range(40):
         response = await client.get(f"/api/projects/{project_id}")

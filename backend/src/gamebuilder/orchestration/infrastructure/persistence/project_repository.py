@@ -1,7 +1,7 @@
 from time import time
 from uuid import UUID
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from gamebuilder.orchestration.domain.model.project import Project
@@ -32,13 +32,14 @@ class SqlAlchemyProjectRepository:
             row = await session.get(ProjectRow, project_id)
             if row is None:
                 return None
-            return Project(
-                id=row.id,
-                prompt=row.prompt,
-                status=ProjectStatus(row.status),
-                created_at=row.created_at,
-                updated_at=row.updated_at,
+            return self._to_domain(row)
+
+    async def list_recent(self) -> list[Project]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(ProjectRow).order_by(ProjectRow.updated_at.desc())
             )
+            return [self._to_domain(row) for row in result.scalars().all()]
 
     async def update_status(self, project_id: UUID, status: ProjectStatus) -> None:
         async with self._session_factory() as session:
@@ -48,3 +49,13 @@ class SqlAlchemyProjectRepository:
                 .values(status=status.value, updated_at=int(time() * 1000))
             )
             await session.commit()
+
+    @staticmethod
+    def _to_domain(row: ProjectRow) -> Project:
+        return Project(
+            id=row.id,
+            prompt=row.prompt,
+            status=ProjectStatus(row.status),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )

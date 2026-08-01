@@ -1,10 +1,8 @@
-# Frontend (Next.js)
+Prompt UI and studio desk for Cyborg Studios (retro arcade vibe).
 
-Prompt UI and project/artifact polling for Cyborg Studios. Phaser game runner comes later (see root design doc).
+- Left sidebar: **+ New game**, Games list (last active)
+- `/` — create a game
+- `/projects/[id]` — project card with brief + stage deliverables
+- `/projects/[id]/play` — full-bleed play cabinet (Phaser later)
 
-```bash
-npm install
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 npm run dev
-```
-
-Or run the full stack from the repo root with `docker compose up --build -d`.
+See `docs/multi-agent-game-builder-design.md` §3.

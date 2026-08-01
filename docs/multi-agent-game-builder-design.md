@@ -17,7 +17,7 @@
 **Other dependencies to add**
 
 - **Backend**: FastAPI, Temporal Python SDK, PydanticAI (agents), optional LangGraph, SQLAlchemy + asyncpg, optional Alembic for migrations later.
-- **Frontend**: Phaser 3 (only in the "game runner" surface that loads generated games), plus the Next.js stack.
+- **Frontend**: Next.js App Router — `/` prompt, `/projects/[id]` studio desk (Brief + Studio + Play CTA), `/projects/[id]/play` Phaser cabinet. See design doc §3 for artifact audience and retro-arcade visual direction.
 - **Agents**: Team modules own prompts, contracts, and reflection shape. **PydanticAI** is the default infrastructure adapter behind team `*AgentGraph` ports (structured outputs). Optional adapters (LangGraph, raw `LlmModel` reflective loop) stay swappable.
 
 **LLM backends**: Team/application code uses only `LlmRouter` / `LlmModel`. Provider SDKs and HTTP clients live under `orchestration.infrastructure.llm`. Supported out of the box: cloud OpenAI, and OpenAI-compatible local servers (Ollama, vLLM, LM Studio, etc.) via `LLM_PROVIDER` + optional `LLM_BASE_URL`. Adding another backend is an infrastructure adapter, not a team change.
@@ -60,18 +60,66 @@ There are no repo-wide top-level `domain`, `application`, `infrastructure`, or `
 
 ---
 
-## 3. User flows
+## 3. User flows and product UI
 
-**MVP (one-shot, with visible artifacts)**
+### Surfaces (information architecture)
 
-1. User opens app, enters prompt (e.g. "Mario in the style of Ghibli meets Van Gogh"), triggers "Generate".
-2. Backend starts a Temporal workflow asynchronously; frontend receives `projectId` and polls GET `/api/projects/:id` for status and artifacts.
-3. As artifacts are ready, they appear in the UI (Vision, Pillars, Design, Story, Art, Engineering, QA, Producer).
-4. When pipeline finishes, "Play" is enabled; user clicks "Play" and the game runs via Phaser runner loading the generated bundle.
-5. No edit/refinement in MVP; user can start a new prompt for a new game.
+App chrome uses a **left sidebar** (Cursor / Vercel / Notion–style): **+ New game** at the top, then a **Games** list sorted by last activity (`updatedAt`), labeled by a short name derived from the prompt.
 
-**Later (refinement)**  
-User sees intermediate artifacts and can give feedback; backend creates a new version or project and agents use feedback to produce a new design/code pass.
+| Route | Role |
+| ----- | ---- |
+| `/` | New game prompt. Brand-first; start generation. |
+| `/projects/[id]` | **Project card**: prompt, inline brief (vision + pillars), pipeline stage buttons, Play. Clicking a stage reveals that team’s deliverables in the card. |
+| `/projects/[id]/play` | **Play**: full-bleed Phaser runner (no sidebar). “Back to project” returns to the desk. |
+
+```text
+sidebar: New game | Games…
+/  →  /projects/:id  ⇄  /projects/:id/play
+```
+
+API: `GET /api/projects` returns summaries (newest activity first) for the sidebar; `GET /api/projects/:id` remains the full project + artifacts poll.
+
+### MVP flow (one-shot, visible artifacts)
+
+1. User opens `/` (or **+ New game**), enters a prompt, starts generation.
+2. Backend starts a Temporal workflow; frontend navigates to `/projects/:id` and polls GET `/api/projects/:id`.
+3. Project card shows status + brief as Design finishes. Stage buttons open that team’s deliverables (empty until the team runs).
+4. When `GAME_BUNDLE` exists, **Play** is enabled → `/projects/:id/play`.
+5. MVP has no edit/refinement; create another game from the sidebar.
+
+### Later (refinement)
+
+- Per-artifact feedback / edit on primary targets (Vision, Pillars, Mechanics, Narrative, ArtDirection).
+- Backend re-runs **from that team step** (Temporal), not only full silent regen.
+- AssetPrompts, raw GameBundle payload, and REFLECTION_NOTE are not primary edit surfaces.
+
+### Artifact audience (what users see)
+
+Intent → story → look → **play**. Keep explanatory copy minimal — the layout should be self-explanatory.
+
+| Priority | Artifacts | Presentation |
+| -------- | --------- | ------------ |
+| **Brief (in project card)** | VisionDoc summary, DesignPillars | Always visible on the card when present |
+| **Stage deliverables** | MechanicsSpec, SystemsSpec, NarrativeSpec, QuestBeats, ArtDirection, AssetList, AssetPrompts, QaIssues, CoherenceReview, ProducerNotes | Shown only for the selected pipeline stage button |
+| **Play (not a JSON card)** | GameBundle | Play control / play route only |
+| **Hidden** | REFLECTION_NOTE; raw GameBundle JSON | Not in the default desk UI |
+
+### Project card layout
+
+1. Title (short prompt label), full prompt, status, Play.
+2. Brief strip: vision summary + pillar chips.
+3. Pipeline stage buttons (Design → … → Producer); selected stage reveals deliverables below.
+4. No separate “studio wall” of every artifact at once.
+
+### Visual direction
+
+Whimsical **retro game / arcade studio** vibe — playful, not corporate SaaS:
+
+- Expressive pixel display type for brand and key labels; readable sans for body copy.
+- Light **orange-cream** field with soft **lavender / light purple** accents, chunky borders, and a subtle grid.
+- Motion: light press/start button feedback, status pulse while generating — presence, not noise.
+- Play route stays visually quiet around the canvas so the game is the hero.
+- Prefer short UI labels over instructional paragraphs.
 
 ---
 
@@ -127,8 +175,8 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts.
 3. **Agent graph foundation** *(done)*: `LlmModel`, `LlmRouter`, `ModelCapability`, `AgentGraph[I, O]`; design contracts in application; **PydanticAI** default agent adapter; optional reflective/`LlmModel` and LangGraph adapters; deterministic fallback; transport-agnostic LLM config (cloud + local).
 4. **Teams and orchestration** *(next)*: implement each peer team's service/graph + reflection + validation; wire orchestration activities to call those teams in Temporal workflow order (including Producer).
-5. **Frontend and play**: richer project/status page, artifact viewer by team, game bundle serving, Phaser runner, Play button.
-6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E, error handling, retry/timeout policy, operational docs.
+5. **Frontend and play** *(in progress)*: studio desk (`/projects/[id]`) with Brief-first artifacts + team Studio sections; visual retro-arcade direction; game bundle serving; Phaser on `/projects/[id]/play`; Play CTA when bundle ready. Edit/feedback comes after MVP inspection works.
+6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E (prompt → desk → play), error handling, retry/timeout policy, operational docs.
 
 ---
 
@@ -170,6 +218,6 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 ## 10. Summary
 
 - **Stack**: Next.js (App Router) + Tailwind + Phaser 3 (frontend); Python + FastAPI + SQLAlchemy + PostgreSQL (backend); Temporal for durable workflows; PydanticAI for team agents (optional LangGraph / raw LLM adapters).
-- **Architecture**: Single repo, REST API, Temporal-backed orchestration coordinating peer team services in backend; frontend: prompt UI, artifact viewer, Phaser runner.
-- **Flow**: User prompt → studio pipeline (Design → Story → Art → Engineering → QA → Producer) → structured artifacts + file-backed assets + game bundle → user sees artifacts and plays in browser.
-- **Tasks**: Phased; each task implementable and reviewable in a focused pass. Phases 1–3 done on the current stack; Phase 4+ (remaining teams, Phaser play, polish) is next.
+- **Architecture**: Single repo, REST API, Temporal-backed orchestration coordinating peer team services in backend; frontend: prompt → studio desk (brief + artifacts) → Phaser play route.
+- **Flow**: User prompt → studio pipeline (Design → Story → Art → Engineering → QA → Producer) → structured artifacts + file-backed assets + game bundle → user inspects Brief/Studio on the desk and plays in `/projects/:id/play`.
+- **Tasks**: Phased; each task implementable and reviewable in a focused pass. Phases 1–3 done on the current stack; Phase 4 (remaining teams) and Phase 5 (desk + play UI) are next.

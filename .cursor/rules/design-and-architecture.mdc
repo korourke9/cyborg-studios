@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Design and architecture
 
-- **Canonical design**: Before implementing features, changing architecture, or adding agents/artifacts, read [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md). It is the single source of truth for tech choices, user flows, Temporal workflow architecture, team reflection processes, pipeline, and task breakdown.
+- **Canonical design**: Before implementing features, changing architecture, or adding agents/artifacts, read [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md). It is the single source of truth for tech choices, user flows and product UI (§3), Temporal workflow architecture, team reflection processes, pipeline, and task breakdown.
 - **Module-local onions**: There are no repo-wide top-level `domain`, `application`, `infrastructure`, or `interfaces` packages. Each backend module/bounded context owns those layers locally: e.g. `orchestration.domain`, `orchestration.application`, `team.design.domain`, `team.design.application`, etc.
 - **Orchestration bounded context**: Generation workflow coordination lives under `gamebuilder.orchestration`. Orchestration coordinates teams but does not contain team logic.
 - **Studio teams**: Team logic is organized in peer modules under `gamebuilder.team.<name>` (design, story, art, engineering, qa, producer). Each team owns the logic that produces its artifacts; place new agent or reflection code in the correct team-local layer, usually `team.<name>.application`. Do not add "generic" agent code outside a team.

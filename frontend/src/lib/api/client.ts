@@ -9,6 +9,14 @@ export type ArtifactDetails = {
   createdAt: number;
 };
 
+export type ProjectSummary = {
+  id: string;
+  prompt: string;
+  status: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type ProjectDetails = {
   id: string;
   prompt: string;
@@ -23,12 +31,10 @@ export type CreateProjectResponse = {
   status: string;
 };
 
-export async function fetchText(path: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
-  if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`);
-  }
-  return response.text();
+export function gameLabel(prompt: string, maxLength = 36): string {
+  const cleaned = prompt.trim().replace(/\s+/g, " ");
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 export async function createProject(
@@ -43,6 +49,14 @@ export async function createProject(
     throw new Error(`Create project failed (${response.status})`);
   }
   return response.json() as Promise<CreateProjectResponse>;
+}
+
+export async function listProjects(): Promise<ProjectSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/projects`);
+  if (!response.ok) {
+    throw new Error(`List projects failed (${response.status})`);
+  }
+  return response.json() as Promise<ProjectSummary[]>;
 }
 
 export async function getProject(projectId: string): Promise<ProjectDetails> {

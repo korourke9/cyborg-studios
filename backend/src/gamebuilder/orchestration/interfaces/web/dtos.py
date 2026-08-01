@@ -23,6 +23,16 @@ class ArtifactResponse(BaseModel):
     created_at: int = Field(alias="createdAt")
 
 
+class ProjectSummaryResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: UUID
+    prompt: str
+    status: str
+    created_at: int = Field(alias="createdAt")
+    updated_at: int = Field(alias="updatedAt")
+
+
 class ProjectResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

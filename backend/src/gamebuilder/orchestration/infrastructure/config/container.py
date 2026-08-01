@@ -7,6 +7,7 @@ from temporalio.worker import Worker
 from gamebuilder.orchestration.application.usecase.create_project import CreateProjectUseCase
 from gamebuilder.orchestration.application.usecase.fail_project import FailProjectUseCase
 from gamebuilder.orchestration.application.usecase.get_project import GetProjectUseCase
+from gamebuilder.orchestration.application.usecase.list_projects import ListProjectsUseCase
 from gamebuilder.orchestration.application.usecase.run_vision_step import RunVisionStepUseCase
 from gamebuilder.orchestration.application.usecase.start_project_generation import (
     StartProjectGenerationUseCase,
@@ -41,6 +42,7 @@ class AppContainer:
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
     create_project: CreateProjectUseCase
+    list_projects: ListProjectsUseCase
     get_project: GetProjectUseCase
     start_project_generation: StartProjectGenerationUseCase
     temporal_client: Client | None = None
@@ -89,6 +91,7 @@ async def build_container(
         engine=engine,
         session_factory=session_factory,
         create_project=CreateProjectUseCase(project_repository),
+        list_projects=ListProjectsUseCase(project_repository),
         get_project=GetProjectUseCase(project_repository, artifact_repository),
         start_project_generation=StartProjectGenerationUseCase(runner),
         temporal_client=client,

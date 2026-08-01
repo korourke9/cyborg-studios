@@ -6,9 +6,12 @@ alwaysApply: false
 
 # Frontend standards
 
-- **Design doc**: For UI that displays projects, artifacts, or the game runner, follow the flows and artifact types in [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md). Project page shows status per phase and artifacts grouped by team; artifact viewer supports structured JSON and file references (e.g. images via URL or blob).
-- **Next.js**: Use the App Router (`app/`). Prefer Server Components by default; use Client Components (`"use client"`) for interactivity (forms, polling). Use TypeScript with strict mode; interfaces/types for public shapes.
-- **Routing**: Use route segments for project and play (e.g. `app/projects/[id]`, `app/play/[id]`) when those surfaces exist. Keep page components focused; extract shared UI into `components/`.
-- **API**: Use a small typed client (e.g. under `lib/api`) for REST calls. Poll GET `/api/projects/:id` for status and artifacts until terminal state; do not block the UI on long-running generation.
-- **Phaser runner**: Isolate the game in a dedicated route or iframe so React and Phaser do not conflict. Load the game bundle from the API (script + asset base URL) and bootstrap Phaser in that context.
-- **Testing**: Vitest for unit tests; Playwright for E2E (e.g. submit prompt, wait for completion or mocked path, open project page, open play, assert canvas present). Use Tailwind for styling; keep accessibility in mind for artifact viewer and forms.
+- **Design doc**: For UI that displays projects, artifacts, or the game runner, follow [docs/multi-agent-game-builder-design.md](docs/multi-agent-game-builder-design.md) §3. That section is the source of truth for product UI.
+- **Shell**: Left sidebar with **+ New game** and a **Games** list (`GET /api/projects`, sorted by `updatedAt`). Desk routes live under the `(desk)` group; Play stays outside the sidebar.
+- **Surfaces**: `/` new game; `/projects/[id]` single project card (brief inline + stage buttons → deliverables); `/projects/[id]/play` full-bleed Phaser.
+- **Copy**: Keep labels short. Do not add instructional paragraphs the layout already makes obvious.
+- **Visual direction**: Whimsical retro / arcade studio — pixel display for brand/labels, readable body type, orange-cream + lavender palette, chunky panels.
+- **Next.js**: Use the App Router (`app/`). Prefer Server Components by default; use Client Components (`"use client"`) for interactivity (forms, polling, sidebar). Use TypeScript with strict mode.
+- **API**: Typed client under `lib/api`. Poll GET `/api/projects/:id` until terminal state; refresh the games list on navigation.
+- **Phaser runner**: Isolate on `/projects/[id]/play`. Load the game bundle from the API when available.
+- **Testing**: Vitest for unit tests; Playwright for E2E (new game → desk → stage deliverables → play when available).
