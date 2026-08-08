@@ -1,6 +1,8 @@
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
+from pydantic_ai.settings import ModelSettings
 
+from gamebuilder.orchestration.infrastructure.llm.pydantic_ai_sync import run_agent_sync
 from gamebuilder.team.art.application.art_contracts import (
     CRITIQUE_SYSTEM_PROMPT,
     DRAFT_SYSTEM_PROMPT,
@@ -13,6 +15,8 @@ from gamebuilder.team.art.application.art_contracts import (
 )
 from gamebuilder.team.art.domain.model import ArtTeamInput, ArtTeamOutput
 
+_DEFAULT_RETRIES = 3
+
 
 class PydanticAIArtAgentGraph:
     """ArtAgentGraph backed by PydanticAI agents with structured outputs."""
@@ -23,33 +27,43 @@ class PydanticAIArtAgentGraph:
         *,
         critique_model: Model | None = None,
         revise_model: Model | None = None,
+        model_settings: ModelSettings | None = None,
+        retries: int = _DEFAULT_RETRIES,
     ) -> None:
         self._draft_agent: Agent[None, ArtArtifactBundle] = Agent(
             model,
             output_type=ArtArtifactBundle,
             system_prompt=DRAFT_SYSTEM_PROMPT,
+            model_settings=model_settings,
+            retries=retries,
         )
         self._critique_agent: Agent[None, CritiqueResult] = Agent(
             critique_model or model,
             output_type=CritiqueResult,
             system_prompt=CRITIQUE_SYSTEM_PROMPT,
+            model_settings=model_settings,
+            retries=retries,
         )
         self._revise_agent: Agent[None, ArtArtifactBundle] = Agent(
             revise_model or model,
             output_type=ArtArtifactBundle,
             system_prompt=REVISE_SYSTEM_PROMPT,
+            model_settings=model_settings,
+            retries=retries,
         )
 
     def run(self, input: ArtTeamInput) -> ArtTeamOutput:
-        draft = self._draft_agent.run_sync(draft_user_prompt(input)).output
+        draft = run_agent_sync(self._draft_agent, draft_user_prompt(input))
         draft_json = draft.model_dump_json(by_alias=True)
 
-        critique = self._critique_agent.run_sync(
-            critique_user_prompt(input, draft_json)
-        ).output
+        critique = run_agent_sync(
+            self._critique_agent,
+            critique_user_prompt(input, draft_json),
+        )
 
-        revised = self._revise_agent.run_sync(
-            revise_user_prompt(input, draft_json, critique.model_dump_json())
-        ).output
+        revised = run_agent_sync(
+            self._revise_agent,
+            revise_user_prompt(input, draft_json, critique.model_dump_json()),
+        )
 
         return revised.to_output()

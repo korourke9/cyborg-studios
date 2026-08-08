@@ -1,6 +1,9 @@
 from openai import OpenAI
 
 from gamebuilder.orchestration.application.port.llm import LlmModel, LlmRouter, ModelCapability
+from gamebuilder.orchestration.infrastructure.config.agent_runtime import (
+    model_id_for_capability,
+)
 from gamebuilder.orchestration.infrastructure.config.settings import Settings
 from gamebuilder.orchestration.infrastructure.llm.openai_compatible_model import (
     OpenAICompatibleLlmModel,
@@ -32,18 +35,14 @@ def create_llm_router(settings: Settings) -> LlmRouter | None:
         return OpenAICompatibleLlmModel(client, model_id, json_mode=json_mode)
 
     overrides = {
-        ModelCapability.DESIGN: settings.llm_model_design,
-        ModelCapability.WRITING: settings.llm_model_writing,
-        ModelCapability.ART: settings.llm_model_art,
-        ModelCapability.ENGINEERING: settings.llm_model_engineering,
-        ModelCapability.QA: settings.llm_model_qa,
-        ModelCapability.PRODUCER: settings.llm_model_producer,
+        capability: model_id_for_capability(settings, capability)
+        for capability in ModelCapability
     }
 
     return ConfigLlmRouter(
         build_capability_map(
             factory,
-            default_model=settings.llm_model_design,
+            default_model=model_id_for_capability(settings, ModelCapability.DESIGN),
             overrides=overrides,
         )
     )

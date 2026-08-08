@@ -35,6 +35,11 @@ const TYPE_META: Record<
     team: "art",
     teamLabel: "Art",
   },
+  BINARY_ASSET: {
+    label: "Generated asset",
+    team: "art",
+    teamLabel: "Art",
+  },
   QA_ISSUES: { label: "QA issues", team: "qa", teamLabel: "QA" },
   COHERENCE_REVIEW: {
     label: "Coherence review",
@@ -67,11 +72,17 @@ export type PaletteSwatch = {
   hex: string;
 };
 
+export type AssetRef = {
+  id: string;
+  role: string;
+  fileRef: string;
+};
+
 export type ArtifactField = {
   key: string;
   label: string;
-  value: string | string[] | PaletteSwatch[];
-  kind?: "text" | "colors";
+  value: string | string[] | PaletteSwatch[] | AssetRef[];
+  kind?: "text" | "colors" | "assets";
 };
 
 const TEAM_ORDER: ArtifactTeam[] = [
@@ -167,6 +178,39 @@ export function fieldsFromData(data: unknown): ArtifactField[] {
       }
     }
 
+    if (key.toLowerCase() === "assets" && Array.isArray(raw)) {
+      const assets = parseAssetRefs(raw);
+      if (assets.length > 0) {
+        return {
+          key,
+          label: humanizeKey(key),
+          value: assets,
+          kind: "assets" as const,
+        };
+      }
+    }
+
+    // Single BINARY_ASSET payload
+    if (
+      typeof raw === "string" &&
+      (key === "fileRef" || key === "file_ref") &&
+      looksLikeAssetUrl(raw)
+    ) {
+      const record = data as Record<string, unknown>;
+      return {
+        key,
+        label: "Preview",
+        value: [
+          {
+            id: String(record.assetId ?? record.asset_id ?? "asset"),
+            role: String(record.role ?? "asset"),
+            fileRef: raw,
+          },
+        ],
+        kind: "assets" as const,
+      };
+    }
+
     let value: string | string[];
     if (Array.isArray(raw)) {
       value = raw.map((entry) => formatFieldEntry(entry));
@@ -177,6 +221,28 @@ export function fieldsFromData(data: unknown): ArtifactField[] {
     }
     return { key, label: humanizeKey(key), value, kind: "text" as const };
   });
+}
+
+function parseAssetRefs(raw: unknown[]): AssetRef[] {
+  const assets: AssetRef[] = [];
+  for (const entry of raw) {
+    if (entry === null || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const fileRef = String(record.fileRef ?? record.file_ref ?? "");
+    const role = String(record.role ?? "asset");
+    const id = String(record.id ?? record.assetId ?? role);
+    if (!fileRef) continue;
+    assets.push({ id, role, fileRef });
+  }
+  return assets;
+}
+
+function looksLikeAssetUrl(value: string): boolean {
+  return (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("/api/projects/")
+  );
 }
 
 const DEFAULT_PALETTE_ROLES = [

@@ -9,18 +9,25 @@ DRAFT_SYSTEM_PROMPT = (
     "(blocker, major, minor, note), a short repro, and suggestedFixTeam "
     "(engineering, design, art, story). "
     "Set verdict to pass when there are no blocker/major issues; otherwise "
-    "needs_work. Do not invent missing binaries — placeholder art is expected."
+    "needs_work. Do not invent missing binaries — placeholder art is expected. "
+    "Respond with a single JSON object only matching the schema. "
+    "No markdown, no prose, no code fences."
 )
 
 CRITIQUE_SYSTEM_PROMPT = (
     "You critique a QA report for completeness and fairness. "
     "Ensure blockers are truly unplayable, and that pass/needs_work matches "
-    "the issue severities."
+    "the issue severities. "
+    "Respond with a single JSON object only: "
+    '{"issues":[string],"severity":[string],"suggestions":[string]}. '
+    "No markdown or prose."
 )
 
 REVISE_SYSTEM_PROMPT = (
     "You revise a QA report using critique feedback. Keep checks concrete "
-    "and severities calibrated."
+    "and severities calibrated. "
+    "Respond with a single JSON object only matching the schema. "
+    "No markdown, no prose, no code fences."
 )
 
 

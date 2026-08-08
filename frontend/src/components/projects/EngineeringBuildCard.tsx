@@ -7,6 +7,13 @@ type Props = {
 };
 
 export function EngineeringBuildCard({ projectId, bundle }: Props) {
+  const sdkCleared = bundle.sdkReviewVerdict === "allow";
+  const sdkBlocked =
+    Boolean(bundle.sdkReviewVerdict) &&
+    bundle.sdkReviewVerdict !== "allow" &&
+    bundle.sdkReviewVerdict !== "skipped" &&
+    bundle.sdkReviewVerdict !== "pending";
+
   return (
     <article className="border-4 border-line bg-ink-panel shadow-[4px_4px_0_0_#d4c4f0]">
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b-4 border-line px-4 py-3">
@@ -15,7 +22,7 @@ export function EngineeringBuildCard({ projectId, bundle }: Props) {
             Playable build
           </h4>
           <p className="mt-1 font-[family-name:var(--font-pixel)] text-[8px] text-muted">
-            GAME_BUNDLE
+            GAME_BUNDLE · IR + SDK EXPERIMENT
           </p>
         </div>
       </header>
@@ -32,8 +39,10 @@ export function EngineeringBuildCard({ projectId, bundle }: Props) {
             Status
           </p>
           <p className="mt-1 text-sm text-foam">
-            Engineering built this level. Raw bundle JSON stays off the desk —
-            open Play to run it.
+            Engineering shipped an IR-compiled level
+            {sdkCleared
+              ? " and an SDK JS runtime cleared by security review."
+              : ". SDK JS waits on security review before Play can load it."}
           </p>
         </div>
         <div>
@@ -62,6 +71,29 @@ export function EngineeringBuildCard({ projectId, bundle }: Props) {
             </ul>
           </div>
         ) : null}
+        <div>
+          <p className="font-[family-name:var(--font-pixel)] text-[8px] tracking-wide text-cyan">
+            SDK authorship
+          </p>
+          <p className="mt-1 text-sm text-foam">
+            {bundle.sdkAuthorship || "none"}
+            {bundle.sdkGameplayNotes[0] ? ` — ${bundle.sdkGameplayNotes[0]}` : ""}
+          </p>
+        </div>
+        <div>
+          <p className="font-[family-name:var(--font-pixel)] text-[8px] tracking-wide text-cyan">
+            SDK review
+          </p>
+          <p className="mt-1 text-sm text-foam">
+            {bundle.sdkReviewVerdict || "pending"}
+            {bundle.sdkReviewNotes[0] ? ` — ${bundle.sdkReviewNotes[0]}` : ""}
+          </p>
+          {sdkBlocked ? (
+            <p className="mt-1 text-xs text-[#c45c26]">
+              SDK Play is blocked until review allows it. IR compiler remains playable.
+            </p>
+          ) : null}
+        </div>
         <div className="pt-1">
           <Link
             href={`/projects/${projectId}/play`}

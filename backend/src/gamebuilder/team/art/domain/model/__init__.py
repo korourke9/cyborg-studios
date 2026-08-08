@@ -11,12 +11,26 @@ class PaletteColor(BaseModel):
 class ArtDirection(BaseModel):
     """Visual concept brief — stand-in for concept art until BINARY_ASSET generation."""
 
-    style: str
+    style: str = "Readable 2D shapes with clear silhouettes"
     palette: list[PaletteColor] = Field(min_length=1)
-    mood: str
-    hero_concept: str = Field(alias="heroConcept")
-    world_concept: str = Field(alias="worldConcept")
-    key_scenes: list[str] = Field(alias="keyScenes", min_length=1)
+    mood: str = "playful"
+    hero_concept: str = Field(
+        alias="heroConcept",
+        default="A small, friendly lead character with a readable silhouette",
+    )
+    world_concept: str = Field(
+        alias="worldConcept",
+        default="Compact stages with clear safe ground and readable hazards",
+    )
+    key_scenes: list[str] = Field(
+        alias="keyScenes",
+        min_length=1,
+        default_factory=lambda: [
+            "First world reveal",
+            "Safe room teaching the visual twist",
+            "Hazard stretch using palette contrast",
+        ],
+    )
     notes: str = ""
 
     model_config = {"populate_by_name": True}
@@ -26,6 +40,10 @@ class AssetListItem(BaseModel):
     id: str
     role: str
     file_ref: str = Field(alias="fileRef", default="placeholder")
+    # Filled after sprite prep so Engineering can size Phaser display objects.
+    frame_w: int | None = Field(alias="frameW", default=None)
+    frame_h: int | None = Field(alias="frameH", default=None)
+    processed: bool = False
 
     model_config = {"populate_by_name": True}
 

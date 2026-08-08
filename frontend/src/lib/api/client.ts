@@ -4,9 +4,23 @@ const API_BASE_URL =
 
 export { API_BASE_URL };
 
-export function gameBundleEntryUrl(projectId: string): string {
-  return `${API_BASE_URL}/api/projects/${projectId}/bundle/entry.js`;
+export function gameBundleEntryUrl(
+  projectId: string,
+  runtime: "ir" | "sdk" = "ir",
+): string {
+  return `${API_BASE_URL}/api/projects/${projectId}/bundle/entry.js?runtime=${runtime}`;
 }
+
+export type PlayRuntime = "ir" | "sdk";
+
+export type PlayBundleInfo = {
+  projectId: string;
+  title: string;
+  runtimes: PlayRuntime[];
+  sdkReviewVerdict: string;
+  sdkReviewNotes: string[];
+  implemented: string[];
+};
 
 export type ArtifactDetails = {
   id: string;
@@ -100,6 +114,56 @@ export async function getProject(projectId: string): Promise<ProjectDetails> {
     );
   }
   return response.json() as Promise<ProjectDetails>;
+}
+
+export async function getPlayBundleInfo(
+  projectId: string,
+): Promise<PlayBundleInfo> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/play`);
+  if (!response.ok) {
+    throw await readApiError(
+      response,
+      `Get play info failed (${response.status})`,
+    );
+  }
+  return response.json() as Promise<PlayBundleInfo>;
+}
+
+/** TEMP: remove before external release */
+export type EngineeringLabOptions = {
+  sdkEnabled: boolean;
+  sdkLlmReview: boolean;
+  sdkLlmAuthorship: boolean;
+  allowUnreviewedSdkPlay: boolean;
+  preferredPlayRuntime: PlayRuntime;
+};
+
+export async function getEngineeringLabOptions(): Promise<EngineeringLabOptions> {
+  const response = await fetch(`${API_BASE_URL}/api/lab/engineering`);
+  if (!response.ok) {
+    throw await readApiError(
+      response,
+      `Get lab options failed (${response.status})`,
+    );
+  }
+  return response.json() as Promise<EngineeringLabOptions>;
+}
+
+export async function updateEngineeringLabOptions(
+  patch: Partial<EngineeringLabOptions>,
+): Promise<EngineeringLabOptions> {
+  const response = await fetch(`${API_BASE_URL}/api/lab/engineering`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) {
+    throw await readApiError(
+      response,
+      `Update lab options failed (${response.status})`,
+    );
+  }
+  return response.json() as Promise<EngineeringLabOptions>;
 }
 
 export async function deleteProject(projectId: string): Promise<void> {

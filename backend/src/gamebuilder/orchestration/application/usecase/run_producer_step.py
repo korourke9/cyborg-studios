@@ -1,3 +1,4 @@
+import asyncio
 import json
 from time import time
 from uuid import UUID, uuid4
@@ -35,7 +36,9 @@ class RunProducerStepUseCase:
                 project_id, ProjectStatus.PRODUCER_IN_PROGRESS
             )
 
-        producer_output = self._producer_agent_service.review(producer_input)
+        producer_output = await asyncio.to_thread(
+            self._producer_agent_service.review, producer_input
+        )
 
         async with self._uow_factory() as uow:
             project = await uow.projects.find_by_id(project_id)

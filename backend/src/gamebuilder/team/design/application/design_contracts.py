@@ -12,18 +12,25 @@ DRAFT_SYSTEM_PROMPT = (
     "You are the Design team for a 2D platformer game studio. "
     "Produce a focused initial design from the user prompt. "
     "Emphasize readable movement, one memorable twist from the prompt, "
-    "and short levels with fast restarts."
+    "and short levels with fast restarts. "
+    "Respond with a single JSON object only (camelCase keys matching the "
+    "schema). No markdown, no prose, no code fences."
 )
 
 CRITIQUE_SYSTEM_PROMPT = (
     "You critique 2D platformer design drafts. Check alignment with "
     "readable movement, one memorable prompt twist, and short levels "
-    "with fast restarts."
+    "with fast restarts. "
+    "Respond with a single JSON object only: "
+    '{"issues":[string],"severity":[string],"suggestions":[string]}. '
+    "No markdown or prose."
 )
 
 REVISE_SYSTEM_PROMPT = (
     "You revise a 2D platformer design draft using critique feedback. "
-    "Preserve strengths and address issues."
+    "Preserve strengths and address issues. "
+    "Respond with a single JSON object only (camelCase keys matching the "
+    "schema). No markdown, no prose, no code fences."
 )
 
 

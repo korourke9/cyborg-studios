@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArtifactStack } from "@/components/artifacts/ArtifactStack";
+import { ArtAssetsCard } from "@/components/projects/ArtAssetsCard";
 import { EngineeringBuildCard } from "@/components/projects/EngineeringBuildCard";
 import { gameLabel, type ProjectDetails } from "@/lib/api/client";
 import {
   PIPELINE_STAGES,
+  artAssetPreviewsFromArtifacts,
   artifactsForStage,
   briefFromArtifacts,
   gameBundleSummaryFromArtifacts,
@@ -39,6 +41,15 @@ export function ProjectStatusPanel({ project }: Props) {
     selectedStage === "Engineering"
       ? gameBundleSummaryFromArtifacts(project.artifacts)
       : null;
+  const artAssets =
+    selectedStage === "Art"
+      ? artAssetPreviewsFromArtifacts(project.artifacts)
+      : [];
+  // Gallery covers generated thumbs; keep concept / prompts below.
+  const artDeskItems =
+    selectedStage === "Art"
+      ? stageArtifacts.filter((item) => item.artifact.type !== "ASSET_LIST")
+      : stageArtifacts;
 
   return (
     <section className="border-4 border-line bg-ink-panel p-5 shadow-[6px_6px_0_0_#9b7ed9]">
@@ -137,6 +148,18 @@ export function ProjectStatusPanel({ project }: Props) {
             projectId={project.id}
             bundle={engineeringBundle}
           />
+        ) : selectedStage === "Art" ? (
+          <div className="grid gap-4">
+            <ArtAssetsCard assets={artAssets} />
+            <ArtifactStack
+              items={artDeskItems}
+              emptyLabel={
+                artAssets.length > 0
+                  ? "Concept notes appear here when ready."
+                  : "No art deliverables yet."
+              }
+            />
+          </div>
         ) : (
           <ArtifactStack
             items={stageArtifacts}

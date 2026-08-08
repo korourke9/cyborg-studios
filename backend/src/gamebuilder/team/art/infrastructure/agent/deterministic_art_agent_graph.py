@@ -77,29 +77,41 @@ class DeterministicArtAgentGraph:
                         asset_id="player",
                         role="hero",
                         prompt=(
-                            f"Concept sheet for the main character in “{prompt}”: "
-                            "front/side poses, glow accent, readable silhouette"
+                            f"Side-view Phaser player sprite for “{prompt}”: full body, "
+                            "plain background, readable silhouette, one glow accent"
                         ),
                     ),
                     AssetPromptItem(
                         asset_id="tiles",
                         role="key-level-tiles",
-                        prompt=f"Platform tiles and ledges for {setting}",
+                        prompt=(
+                            f"Walkable platform tiles for {setting}: solid ledges, "
+                            "seamless edges, no characters"
+                        ),
                     ),
                     AssetPromptItem(
                         asset_id="hazard",
                         role="signature-hazard",
-                        prompt="Signature hazard prop with instant readability",
+                        prompt=(
+                            "Single signature hazard prop/tile for a platformer: "
+                            "clear danger silhouette, plain background"
+                        ),
                     ),
                     AssetPromptItem(
                         asset_id="collectible",
                         role="collectible",
-                        prompt="Bright collectible that pops on the palette",
+                        prompt=(
+                            "Small bright collectible pickup sprite that pops on "
+                            "the palette, plain background"
+                        ),
                     ),
                     AssetPromptItem(
                         asset_id="background",
                         role="key-level-backdrop",
-                        prompt=f"Key level backdrop for mood “{mood}” in {setting}",
+                        prompt=(
+                            f"Wide stage backdrop for mood “{mood}” in {setting}: "
+                            "empty lower foreground for platforms, no UI"
+                        ),
                     ),
                 ]
             ),

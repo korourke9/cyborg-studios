@@ -13,17 +13,24 @@ DRAFT_SYSTEM_PROMPT = (
     "make a ship call: decision must be ship, revise, or cut. "
     "Prefer ship when QA verdict is pass and the build exists; revise when "
     "gaps are fixable; cut only when the concept is incoherent. "
-    "Keep notes short and actionable."
+    "Keep notes short and actionable. "
+    "Respond with a single JSON object only matching the schema. "
+    "No markdown, no prose, no code fences."
 )
 
 CRITIQUE_SYSTEM_PROMPT = (
     "You critique a producer coherence review and ship call. "
-    "Check that decision matches QA severity and that gaps are concrete."
+    "Check that decision matches QA severity and that gaps are concrete. "
+    "Respond with a single JSON object only: "
+    '{"issues":[string],"severity":[string],"suggestions":[string]}. '
+    "No markdown or prose."
 )
 
 REVISE_SYSTEM_PROMPT = (
     "You revise producer outputs using critique feedback. "
-    "Keep decision in {ship, revise, cut} and stay concise."
+    "Keep decision in {ship, revise, cut} and stay concise. "
+    "Respond with a single JSON object only matching the schema. "
+    "No markdown, no prose, no code fences."
 )
 
 

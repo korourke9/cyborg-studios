@@ -1,3 +1,4 @@
+import asyncio
 import json
 from time import time
 from uuid import UUID, uuid4
@@ -14,6 +15,29 @@ from gamebuilder.team.engineering.domain.model import (
     EngineeringTeamInput,
     EngineeringTeamOutput,
 )
+
+
+def _display_size_for_role(
+    role: str, frame_w: object, frame_h: object
+) -> tuple[int, int]:
+    """Map prepared sprite canvas size to in-game display size."""
+    try:
+        fw = int(frame_w) if frame_w is not None else 0
+        fh = int(frame_h) if frame_h is not None else 0
+    except (TypeError, ValueError):
+        fw, fh = 0, 0
+
+    defaults = {
+        "hero": (32, 36),
+        "signature-hazard": (32, 32),
+        "hazard": (32, 32),
+        "collectible": (22, 22),
+    }
+    fallback = defaults.get(role, (28, 32))
+    if fw <= 0 or fh <= 0:
+        return fallback
+    # Prepared canvases are larger than on-screen sprites; scale down ~50%.
+    return (max(16, min(48, fw // 2)), max(16, min(48, fh // 2)))
 
 
 class RunEngineeringStepUseCase:
@@ -38,7 +62,9 @@ class RunEngineeringStepUseCase:
                 project_id, ProjectStatus.ENGINEERING_IN_PROGRESS
             )
 
-        eng_output = self._engineers_agent_service.generate_bundle(eng_input)
+        eng_output = await asyncio.to_thread(
+            self._engineers_agent_service.generate_bundle, eng_input
+        )
 
         async with self._uow_factory() as uow:
             project = await uow.projects.find_by_id(project_id)
@@ -65,6 +91,14 @@ class RunEngineeringStepUseCase:
         player_hex = "#9b7ed9"
         platform_hex = "#3a2a4a"
         goal_hex = "#ff8c42"
+        hero_texture_url = ""
+        backdrop_texture_url = ""
+        hazard_texture_url = ""
+        platform_texture_url = ""
+        collectible_texture_url = ""
+        hero_display_w, hero_display_h = 28, 32
+        hazard_display_w, hazard_display_h = 32, 32
+        collectible_display_w, collectible_display_h = 20, 20
 
         for artifact in artifacts:
             try:
@@ -94,7 +128,35 @@ class RunEngineeringStepUseCase:
                     background_hex = by_role.get("background") or background_hex
                     player_hex = by_role.get("primary") or player_hex
                     platform_hex = by_role.get("ink") or platform_hex
-                    goal_hex = by_role.get("secondary") or by_role.get("accent") or goal_hex
+                    goal_hex = (
+                        by_role.get("secondary") or by_role.get("accent") or goal_hex
+                    )
+            if artifact.type == ArtifactType.ASSET_LIST:
+                assets = payload.get("assets")
+                if isinstance(assets, list):
+                    for item in assets:
+                        if not isinstance(item, dict):
+                            continue
+                        role = str(item.get("role") or "")
+                        ref = str(item.get("fileRef") or item.get("file_ref") or "")
+                        if not ref or ref.startswith("placeholder"):
+                            continue
+                        frame_w = item.get("frameW") or item.get("frame_w")
+                        frame_h = item.get("frameH") or item.get("frame_h")
+                        display = _display_size_for_role(role, frame_w, frame_h)
+                        if role == "hero":
+                            hero_texture_url = ref
+                            hero_display_w, hero_display_h = display
+                        elif role in {"key-level-backdrop", "backdrop", "background"}:
+                            backdrop_texture_url = ref
+                        elif role in {"signature-hazard", "hazard"}:
+                            hazard_texture_url = ref
+                            hazard_display_w, hazard_display_h = display
+                        elif role in {"key-level-tiles", "tiles", "platform"}:
+                            platform_texture_url = ref
+                        elif role == "collectible":
+                            collectible_texture_url = ref
+                            collectible_display_w, collectible_display_h = display
 
         return EngineeringTeamInput(
             prompt=prompt,
@@ -107,6 +169,17 @@ class RunEngineeringStepUseCase:
             player_hex=player_hex,
             platform_hex=platform_hex,
             goal_hex=goal_hex,
+            hero_texture_url=hero_texture_url,
+            backdrop_texture_url=backdrop_texture_url,
+            hazard_texture_url=hazard_texture_url,
+            platform_texture_url=platform_texture_url,
+            collectible_texture_url=collectible_texture_url,
+            hero_display_w=hero_display_w,
+            hero_display_h=hero_display_h,
+            hazard_display_w=hazard_display_w,
+            hazard_display_h=hazard_display_h,
+            collectible_display_w=collectible_display_w,
+            collectible_display_h=collectible_display_h,
         )
 
     def _engineering_artifacts(

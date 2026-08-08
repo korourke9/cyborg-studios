@@ -1,3 +1,4 @@
+import asyncio
 import json
 from time import time
 from uuid import UUID, uuid4
@@ -33,7 +34,9 @@ class RunStoryStepUseCase:
                 project_id, ProjectStatus.STORY_IN_PROGRESS
             )
 
-        story_output = self._writers_agent_service.generate_story(story_input)
+        story_output = await asyncio.to_thread(
+            self._writers_agent_service.generate_story, story_input
+        )
 
         async with self._uow_factory() as uow:
             project = await uow.projects.find_by_id(project_id)

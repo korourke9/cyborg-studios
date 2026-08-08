@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createProject } from "@/lib/api/client";
 import { useErrorBanner } from "@/components/shell/ErrorBanner";
+import { EngineeringLabPanel } from "@/components/lab/EngineeringLabPanel";
 
 export default function HomePage() {
   const router = useRouter();
@@ -72,6 +73,8 @@ export default function HomePage() {
           <p className="mt-3 text-sm text-coral">{submitError}</p>
         ) : null}
       </section>
+
+      <EngineeringLabPanel />
     </main>
   );
 }

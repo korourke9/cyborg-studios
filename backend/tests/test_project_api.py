@@ -27,12 +27,16 @@ from gamebuilder.orchestration.infrastructure.config.container import (
     build_container,
     init_database,
 )
+from gamebuilder.orchestration.infrastructure.config.agent_runtime import (
+    resolve_agent_runtime,
+)
 from gamebuilder.orchestration.infrastructure.config.settings import Settings
 from gamebuilder.orchestration.infrastructure.persistence.unit_of_work import (
     create_unit_of_work_factory,
 )
 from gamebuilder.orchestration.infrastructure.temporal.activities import GameGenerationActivities
 from gamebuilder.orchestration.infrastructure.temporal.temporal_runtime import create_worker
+from gamebuilder.team.art.application.agent_spec import ART_AGENT_SPEC
 from gamebuilder.team.art.application.art_team_agent_service import ArtTeamAgentService
 from gamebuilder.team.art.infrastructure.agent.deterministic_art_agent_graph import (
     DeterministicArtAgentGraph,
@@ -98,6 +102,9 @@ async def app(tmp_path: Path) -> AsyncIterator[FastAPI]:
                     RunArtStepUseCase(
                         uow_factory,
                         ArtTeamAgentService(DeterministicArtAgentGraph()),
+                        art_runtime=resolve_agent_runtime(ART_AGENT_SPEC, cfg),
+                        image_generator=None,
+                        asset_root=cfg.asset_root(),
                     ),
                     RunEngineeringStepUseCase(
                         uow_factory,
@@ -187,6 +194,24 @@ async def test_create_then_poll_project_until_done(client: AsyncClient) -> None:
     assert script.status_code == 200
     assert "Phaser.Game" in script.text
     assert "application/javascript" in script.headers["content-type"]
+
+    play = await client.get(f"/api/projects/{project_id}/play")
+    assert play.status_code == 200
+    play_body = play.json()
+    assert "ir" in play_body["runtimes"]
+    assert play_body["sdkReviewVerdict"] in {"allow", "deny", "skipped", "pending"}
+
+    if "sdk" in play_body["runtimes"]:
+        sdk_script = await client.get(
+            f"/api/projects/{project_id}/bundle/entry.js?runtime=sdk"
+        )
+        assert sdk_script.status_code == 200
+        assert "Cyborg.boot" in sdk_script.text
+    else:
+        blocked = await client.get(
+            f"/api/projects/{project_id}/bundle/entry.js?runtime=sdk"
+        )
+        assert blocked.status_code == 404
 
 
 async def test_get_unknown_project_returns_not_found(client: AsyncClient) -> None:

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from time import time
 from uuid import UUID, uuid4
@@ -31,7 +32,7 @@ class RunQaStepUseCase:
             qa_input = self._build_input(project.prompt, artifacts)
             await uow.projects.update_status(project_id, ProjectStatus.QA_IN_PROGRESS)
 
-        qa_output = self._qa_agent_service.review(qa_input)
+        qa_output = await asyncio.to_thread(self._qa_agent_service.review, qa_input)
 
         async with self._uow_factory() as uow:
             project = await uow.projects.find_by_id(project_id)

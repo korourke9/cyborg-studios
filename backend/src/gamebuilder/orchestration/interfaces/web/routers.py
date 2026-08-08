@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Query, Request, status
 from fastapi.responses import PlainTextResponse, Response
 
 from gamebuilder.orchestration.application.usecase.get_project import ProjectDetails
@@ -9,6 +9,9 @@ from gamebuilder.orchestration.interfaces.web.dtos import (
     ArtifactResponse,
     CreateProjectRequest,
     CreateProjectResponse,
+    EngineeringLabOptionsResponse,
+    EngineeringLabOptionsUpdateRequest,
+    PlayBundleInfoResponse,
     ProjectResponse,
     ProjectSummaryResponse,
 )
@@ -95,13 +98,99 @@ async def delete_project(project_id: UUID, request: Request) -> Response:
     "/api/projects/{project_id}/bundle/entry.js",
     response_class=PlainTextResponse,
 )
-async def get_game_bundle_entry(project_id: UUID, request: Request) -> PlainTextResponse:
+async def get_game_bundle_entry(
+    project_id: UUID,
+    request: Request,
+    runtime: str = Query(default="ir"),
+) -> PlainTextResponse:
     container = request.app.state.container
-    source = await container.get_game_bundle_script.execute(project_id)
+    source = await container.get_game_bundle_script.execute(
+        project_id, runtime=runtime
+    )
     return PlainTextResponse(
         content=source,
         media_type="application/javascript; charset=utf-8",
         headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get(
+    "/api/projects/{project_id}/play",
+    response_model=PlayBundleInfoResponse,
+    response_model_by_alias=True,
+)
+async def get_play_bundle_info(
+    project_id: UUID, request: Request
+) -> PlayBundleInfoResponse:
+    container = request.app.state.container
+    info = await container.get_play_bundle_info.execute(project_id)
+    return PlayBundleInfoResponse(
+        project_id=info.project_id,
+        title=info.title,
+        runtimes=info.runtimes,
+        sdk_review_verdict=info.sdk_review_verdict,
+        sdk_review_notes=info.sdk_review_notes,
+        implemented=info.implemented,
+    )
+
+
+@router.get("/api/projects/{project_id}/assets/{asset_id}")
+async def get_project_asset(
+    project_id: UUID, asset_id: str, request: Request
+) -> Response:
+    container = request.app.state.container
+    data, content_type = await container.get_project_asset.execute(project_id, asset_id)
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+# TEMP: remove before external release
+@router.get(
+    "/api/lab/engineering",
+    response_model=EngineeringLabOptionsResponse,
+    response_model_by_alias=True,
+)
+async def get_engineering_lab_options(request: Request) -> EngineeringLabOptionsResponse:
+    lab = request.app.state.container.engineering_lab_options
+    return EngineeringLabOptionsResponse(
+        sdk_enabled=lab.sdk_enabled,
+        sdk_llm_review=lab.sdk_llm_review,
+        sdk_llm_authorship=lab.sdk_llm_authorship,
+        allow_unreviewed_sdk_play=lab.allow_unreviewed_sdk_play,
+        preferred_play_runtime=lab.preferred_play_runtime,
+    )
+
+
+@router.patch(
+    "/api/lab/engineering",
+    response_model=EngineeringLabOptionsResponse,
+    response_model_by_alias=True,
+)
+async def update_engineering_lab_options(
+    body: EngineeringLabOptionsUpdateRequest, request: Request
+) -> EngineeringLabOptionsResponse:
+    lab = request.app.state.container.engineering_lab_options
+    try:
+        lab.apply(
+            sdk_enabled=body.sdk_enabled,
+            sdk_llm_review=body.sdk_llm_review,
+            sdk_llm_authorship=body.sdk_llm_authorship,
+            allow_unreviewed_sdk_play=body.allow_unreviewed_sdk_play,
+            preferred_play_runtime=body.preferred_play_runtime,
+        )
+    except ValueError as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return EngineeringLabOptionsResponse(
+        sdk_enabled=lab.sdk_enabled,
+        sdk_llm_review=lab.sdk_llm_review,
+        sdk_llm_authorship=lab.sdk_llm_authorship,
+        allow_unreviewed_sdk_play=lab.allow_unreviewed_sdk_play,
+        preferred_play_runtime=lab.preferred_play_runtime,
     )
 
 

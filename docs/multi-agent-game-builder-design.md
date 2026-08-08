@@ -136,8 +136,8 @@ There are two control layers, and they must not duplicate each other:
 
 - **Design team** (`team.design.*`): VisionDoc, DesignPillars, MechanicsSpec, SystemsSpec. Early creative vision lives here (no separate Creative Director team).
 - **Story team** (`team.story.*`): NarrativeSpec, ExperienceMilestones (ordered player-experience milestones).
-- **Art team** (`team.art.*`): ArtDirection (concept brief: hero/world/key scenes), AssetList, AssetPrompts; may create BINARY_ASSET artifacts later (payload = JSON with file/blob reference). MVP uses placeholder `fileRef`s — no generated images yet.
-- **Engineering team** (`team.engineering.*`): GameBundle — structured Phaser 3 level (platforms, goal, palette hexes) plus compiled `entrySource` JS. Served at `GET /api/projects/{id}/bundle/entry.js` for the play cabinet.
+- **Art team** (`team.art.*`): ArtDirection (concept brief: hero/world/key scenes), AssetList, AssetPrompts; when `IMAGE_PROVIDER` is configured, generates key BINARY_ASSET files for roles declared on `ART_AGENT_SPEC.image_roles` (hero, backdrop, hazard, tiles, collectible), then **prepares game-ready sprites** (background cutout, crop-to-silhouette, normalize onto fixed canvases; backdrop is resized only). Rewrites `AssetList.fileRef` and records `frameW`/`frameH`/`processed` for Engineering. Soft-fails to placeholders if image gen is off or errors.
+- **Engineering team** (`team.engineering.*`): GameBundle — structured Phaser 3 level IR (platforms, damaging hazards, collectibles, camera world size, physics profile) plus dual play runtimes: trusted IR compile (`entrySource`) and constrained Cyborg Phaser SDK JS (`sdkSource`). When LLM is configured and lab `sdkLlmAuthorship` is on, Engineering **authors** `sdkSource` as `Cyborg.boot(...)` gameplay JS (moving hazards, patrol enemies, double jump, timers, or custom Phaser scenes via the facade); otherwise falls back to an IR→SDK template. Authored scripts must pass static denylist lint and (when enabled) a security-review LLM (`sdkReviewVerdict` allow|deny) before Play can load them; denied authorship falls back to the template. Fields `sdkAuthorship` (`template`|`llm`|`llm_fallback`) and `sdkGameplayNotes` record which path shipped. Uses AssetList texture URLs when present; otherwise colored rectangles. Served at `GET /api/projects/{id}/bundle/entry.js?runtime=ir|sdk` and summarized at `GET /api/projects/{id}/play`. Frontend Play uses a sandboxed `/playframe.html` iframe (`sandbox="allow-scripts"`) + `postMessage` boot. **TEMP lab controls** (`GET/PATCH /api/lab/engineering` + home/Play UI): toggle SDK emit, LLM authorship, LLM review, unreviewed SDK play, preferred runtime — remove before external release.
 - **QA team** (`team.qa.*`): QaIssues — structured review of GameBundle vs vision/core loop/milestones (verdict, severities, suggested fix team). MVP uses static checks + LLM reflection; gameplay sim / play telemetry later.
 - **Producer team** (`team.producer.*`): CoherenceReview + ProducerNotes (`ship` | `revise` | `cut`) across vision/story/art/build/QA. MVP is a recommendation only — human approval / Temporal feedback signals still to come.
 
@@ -163,7 +163,10 @@ There are two control layers, and they must not duplicate each other:
 Per-team context builders assemble only the artifacts that team needs. For MVP, pass full artifacts.
 
 **Multi-model routing**  
-`ModelCapability` enum and `LlmRouter.for_capability(...)` return a configured `LlmModel`. Config maps capabilities (DESIGN, WRITING, ART, ENGINEERING, QA, PRODUCER) to model IDs via transport-agnostic settings (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_*`). Team process code calls `LlmModel` rather than provider SDKs or HTTP clients directly.
+Each team declares a `TeamAgentSpec` (`team.<name>.application.agent_spec`) with chat `ModelCapability`, allowed agent modes, local default model id, and (for Art) `image_roles`. Orchestration `Settings` (`LLM_*`, `IMAGE_*`) override provider URLs/keys and optional per-capability model ids. `resolve_agent_runtime(spec, settings)` merges the two. Chat uses `LlmModel` / PydanticAI; pixels use a separate `ImageGenerator` port (local Automatic1111/Forge by default, optional OpenAI Images for paid evals).
+
+**Local-first + evals**  
+Default development path is local OSS chat (Ollama) and local SD (A1111). Paid providers are config swaps. Structural eval helpers live under `gamebuilder.evals` (golden prompts + runtime snapshot + artifact scoring) so provider A/B is evidence-based.
 
 ---
 
@@ -175,16 +178,16 @@ Tasks are sized for one agent or human to implement and another to review. Phase
 2. **Durable workflow foundation** *(done — rebuilt on Temporal Python SDK)*: Temporal in Compose, workflow/activity contracts, worker startup, workflow starter, integration tests for API → workflow → persisted status/artifacts.
 3. **Agent graph foundation** *(done)*: `LlmModel`, `LlmRouter`, `ModelCapability`, `AgentGraph[I, O]`; design contracts in application; **PydanticAI** default agent adapter; optional reflective/`LlmModel` and LangGraph adapters; deterministic fallback; transport-agnostic LLM config (cloud + local).
 4. **Teams and orchestration** *(done for MVP team set)*: Design → Story → Art → Engineering → QA → Producer wired in Temporal.
-5. **Frontend and play** *(in progress)*: studio desk with sidebar + project card; GameBundle script serving; Phaser cabinet on `/projects/[id]/play`.
-6. **Quality and polish**: more workflow-slice integration tests, Playwright E2E (prompt → desk → play), error handling, retry/timeout policy, operational docs.
+5. **Frontend and play** *(in progress)*: studio desk; GameBundle + asset serving; Phaser cabinet with optional textures.
+6. **Quality and polish**: structural eval harness (`gamebuilder.evals`); more workflow-slice tests; Playwright E2E; human feedback signals.
 
 ---
 
 ## 6. Open decisions
 
 - Temporal is the default durable async harness; tune task queues, retry policies, and worker deployment as the app grows.
-- **Game bundle**: MVP stores a single `GAME_BUNDLE` JSON artifact with level geometry + compiled Phaser `entrySource`; API serves the script (`/bundle/entry.js`). Multi-file asset packs can come later.
-- Asset generation: MVP placeholders; later Art Team generates binaries, stored and referenced via JSON (e.g. BINARY_ASSET + AssetList entries with `fileRef`).
+- **Game bundle**: MVP stores a single `GAME_BUNDLE` JSON artifact with level IR + trusted Phaser `entrySource` and optional `sdkSource` (Cyborg SDK). Play A/B: IR always; SDK only when `sdkReviewVerdict=allow` (or lab allow-unreviewed). SDK authorship may be LLM-written `Cyborg.boot` JS or IR template. Texture URLs from Art are optional.
+- **Assets**: Art chat produces prompts; `ImageGenerator` (local A1111 by default) materializes key BINARY_ASSET files under `ASSET_STORAGE_DIR`, then `prepare_game_sprites` cutouts/normalizes them for Phaser. Served at `/api/projects/{id}/assets/{assetId}`. Engineering maps roles → textures + display sizes (hero/hazard/collectible/platform/backdrop).
 - Schema migrations: create-tables-on-startup for early parity; introduce Alembic when schema churn warrants it.
 
 ---

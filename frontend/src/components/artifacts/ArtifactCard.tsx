@@ -1,8 +1,13 @@
 "use client";
 
-import type { PaletteSwatch, ParsedArtifact } from "@/lib/artifacts/display";
+import type {
+  AssetRef,
+  PaletteSwatch,
+  ParsedArtifact,
+} from "@/lib/artifacts/display";
 import { fieldsFromData } from "@/lib/artifacts/display";
 import { PaletteSwatchList } from "@/components/artifacts/PaletteSwatchList";
+import { API_BASE_URL } from "@/lib/api/client";
 
 type Props = {
   item: ParsedArtifact;
@@ -10,7 +15,7 @@ type Props = {
 };
 
 function isPaletteSwatches(
-  value: string | string[] | PaletteSwatch[],
+  value: string | string[] | PaletteSwatch[] | AssetRef[],
 ): value is PaletteSwatch[] {
   return (
     Array.isArray(value) &&
@@ -19,6 +24,29 @@ function isPaletteSwatches(
     value[0] !== null &&
     "hex" in value[0]
   );
+}
+
+function isAssetRefs(
+  value: string | string[] | PaletteSwatch[] | AssetRef[],
+): value is AssetRef[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    typeof value[0] === "object" &&
+    value[0] !== null &&
+    "fileRef" in value[0]
+  );
+}
+
+function resolveAssetSrc(fileRef: string): string | null {
+  if (fileRef.startsWith("placeholder")) return null;
+  if (fileRef.startsWith("http://") || fileRef.startsWith("https://")) {
+    return fileRef;
+  }
+  if (fileRef.startsWith("/")) {
+    return `${API_BASE_URL}${fileRef}`;
+  }
+  return null;
 }
 
 export function ArtifactCard({ item, featured = false }: Props) {
@@ -57,6 +85,34 @@ export function ArtifactCard({ item, featured = false }: Props) {
               </p>
               {field.kind === "colors" && isPaletteSwatches(field.value) ? (
                 <PaletteSwatchList swatches={field.value} />
+              ) : field.kind === "assets" && isAssetRefs(field.value) ? (
+                <ul className="mt-2 grid gap-3 sm:grid-cols-2">
+                  {field.value.map((asset) => {
+                    const src = resolveAssetSrc(asset.fileRef);
+                    return (
+                      <li
+                        key={`${asset.id}-${asset.role}`}
+                        className="border border-line bg-ink px-2 py-2"
+                      >
+                        <p className="font-[family-name:var(--font-pixel)] text-[8px] text-muted">
+                          {asset.role}
+                        </p>
+                        {src ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={src}
+                            alt={asset.role}
+                            className="mt-2 h-28 w-full object-contain"
+                          />
+                        ) : (
+                          <p className="mt-2 text-xs text-muted">
+                            {asset.fileRef || "placeholder"}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               ) : Array.isArray(field.value) ? (
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foam">
                   {field.value.map((entry) => (

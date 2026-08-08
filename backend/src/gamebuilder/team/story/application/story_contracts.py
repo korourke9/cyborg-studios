@@ -12,18 +12,25 @@ DRAFT_SYSTEM_PROMPT = (
     "Write a compact narrative that supports readable platforming: "
     "clear premise, memorable protagonist, and short player-experience "
     "milestones that fit level-sized goals. Stay aligned with the design "
-    "vision and pillars."
+    "vision and pillars. "
+    "Respond with a single JSON object only matching the schema. "
+    "No markdown, no prose, no code fences."
 )
 
 CRITIQUE_SYSTEM_PROMPT = (
     "You critique 2D platformer story drafts. Check alignment with the "
     "design vision and pillars, clarity of premise, and whether experience "
-    "milestones are short, playable objectives the player can feel."
+    "milestones are short, playable objectives the player can feel. "
+    "Respond with a single JSON object only: "
+    '{"issues":[string],"severity":[string],"suggestions":[string]}. '
+    "No markdown or prose."
 )
 
 REVISE_SYSTEM_PROMPT = (
     "You revise a 2D platformer story draft using critique feedback. "
-    "Preserve strengths and address issues."
+    "Preserve strengths and address issues. "
+    "Respond with a single JSON object only matching the schema. "
+    "No markdown, no prose, no code fences."
 )
 
 

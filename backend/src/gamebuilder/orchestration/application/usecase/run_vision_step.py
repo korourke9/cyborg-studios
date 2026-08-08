@@ -1,3 +1,4 @@
+import asyncio
 from time import time
 from uuid import UUID, uuid4
 
@@ -31,7 +32,10 @@ class RunVisionStepUseCase:
                 project_id, ProjectStatus.VISION_IN_PROGRESS
             )
 
-        design_output = self._designers_agent_service.generate_initial_design(prompt)
+        # Offload sync LLM work so Temporal's event loop stays free.
+        design_output = await asyncio.to_thread(
+            self._designers_agent_service.generate_initial_design, prompt
+        )
 
         async with self._uow_factory() as uow:
             project = await uow.projects.find_by_id(project_id)
